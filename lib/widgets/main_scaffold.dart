@@ -26,7 +26,7 @@ class MainScaffold extends StatelessWidget {
         context.go('/jadwal-perkuliahan');
         break;
       case 2:
-        context.go('/statistik');
+        context.go('/jadwal-kerja-kelompok');
         break;
       case 3:
         context.go('/settings');
@@ -65,7 +65,8 @@ class MainScaffold extends StatelessWidget {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           selectedItemColor: Theme.of(context).primaryColor,
-          unselectedItemColor: Colors.grey[400],          items: const [
+          unselectedItemColor: Colors.grey[400],
+          items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home),
@@ -77,9 +78,9 @@ class MainScaffold extends StatelessWidget {
               label: 'Jadwal',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_outlined),
-              activeIcon: Icon(Icons.bar_chart),
-              label: 'Statistik',
+              icon: Icon(Icons.groups_outlined),
+              activeIcon: Icon(Icons.groups),
+              label: 'Kerja Kelompok',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),
