@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../screens/splash_screen.dart';
-import '../screens/welcome_screen.dart';
-import '../screens/auth_screen.dart';
+import '../screens/login/splash_screen.dart';
+import '../screens/login/welcome_screen.dart';
+import '../screens/login/auth_screen.dart';
 import '../screens/homepage.dart';
 import '../screens/jadwal_perkuliahan.dart';
 import '../screens/jadwal_kerja_kelompok.dart';
