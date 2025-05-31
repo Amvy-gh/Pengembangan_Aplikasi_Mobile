@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class ChangeEmailScreen extends StatefulWidget {
+  const ChangeEmailScreen({super.key});
+
   @override
   State<ChangeEmailScreen> createState() => _ChangeEmailScreenState();
 }

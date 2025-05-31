@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../widgets/main_scaffold.dart';
 
 class StatistikScreen extends StatelessWidget {
+  const StatistikScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MainScaffold(

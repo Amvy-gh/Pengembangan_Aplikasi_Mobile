@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class MainScaffold extends StatelessWidget {
+class MainScaffold extends StatefulWidget {
   final Widget body;
   final int currentIndex;
   final String? title;
@@ -9,6 +10,7 @@ class MainScaffold extends StatelessWidget {
   final Widget? leading;
 
   const MainScaffold({
+    super.key, 
     required this.body,
     required this.currentIndex,
     this.title,
@@ -16,9 +18,14 @@ class MainScaffold extends StatelessWidget {
     this.leading,
   });
 
+  @override
+  State<MainScaffold> createState() => _MainScaffoldState();
+}
+
+class _MainScaffoldState extends State<MainScaffold> {
   void _onTap(BuildContext context, int index) {
-    if (index == currentIndex) return;
-      switch (index) {
+    if (index == widget.currentIndex) return;
+    switch (index) {
       case 0:
         context.go('/homepage');
         break;
@@ -34,23 +41,46 @@ class MainScaffold extends StatelessWidget {
     }
   }
 
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon) {
+    final isActive = index == widget.currentIndex;
+    return IconButton(
+      icon: FaIcon(
+        isActive ? activeIcon : icon,
+        size: 20,
+      ),
+      color: isActive ? Color(0xFFFBBF24) : Colors.grey[600],
+      onPressed: () => _onTap(context, index),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: title != null
+      appBar: widget.title != null
           ? AppBar(
-              title: Text(title!),
-              actions: actions,
-              leading: leading,
+              title: Text(widget.title!),
+              actions: widget.actions,
+              leading: widget.leading,
               backgroundColor: Colors.white,
               foregroundColor: Theme.of(context).primaryColor,
               elevation: 0,
               centerTitle: true,
             )
           : null,
-      body: body,
+      body: Column(
+        children: [
+          Expanded(
+            child: widget.body,
+          ),
+          SizedBox(height: 80), // Add padding for bottom navigation bar
+        ],
+      ),
+      extendBody: true,
       bottomNavigationBar: Container(
+        margin: EdgeInsets.all(16),
         decoration: BoxDecoration(
+          color: Color(0xFF2E2E2E),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -59,37 +89,18 @@ class MainScaffold extends StatelessWidget {
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: currentIndex,
-          onTap: (index) => _onTap(context, index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: Theme.of(context).primaryColor,
-          unselectedItemColor: Colors.grey[400],
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today_outlined),
-              activeIcon: Icon(Icons.calendar_today),
-              label: 'Jadwal',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.groups_outlined),
-              activeIcon: Icon(Icons.groups),
-              label: 'Kerja Kelompok',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
+        height: 56,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(0, FontAwesomeIcons.home, FontAwesomeIcons.home),
+            _buildNavItem(1, FontAwesomeIcons.calendarAlt, FontAwesomeIcons.calendarAlt),
+            _buildNavItem(2, FontAwesomeIcons.stream, FontAwesomeIcons.stream),
+            _buildNavItem(3, FontAwesomeIcons.user, FontAwesomeIcons.user),
           ],
         ),
       ),
+      backgroundColor: Colors.white, // Change back to white background
     );
   }
 }

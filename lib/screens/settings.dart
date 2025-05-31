@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../widgets/main_scaffold.dart';
 
 class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }

@@ -2,17 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/main_scaffold.dart';
+import '../utils/database_helper.dart';
 
 class Schedule {
+  int? id;
   String mataKuliah;
   String waktu;
+  String startTime; // Added start time
+  String endTime;   // Added end time
   String ruangan;
   String dosen;
   String hari;
 
   Schedule({
+    this.id,
     required this.mataKuliah,
     required this.waktu,
+    required this.startTime,
+    required this.endTime,
     required this.ruangan,
     required this.dosen,
     required this.hari,
@@ -20,6 +27,8 @@ class Schedule {
 }
 
 class JadwalPerkuliahan extends StatefulWidget {
+  const JadwalPerkuliahan({super.key});
+
   @override
   State<JadwalPerkuliahan> createState() => _JadwalPerkuliahanState();
 }
@@ -30,7 +39,11 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
   final _ruanganController = TextEditingController();
   final _dosenController = TextEditingController();
   final _waktuController = TextEditingController();
+  final _startTimeController = TextEditingController();
+  final _endTimeController = TextEditingController();
   TimeOfDay _selectedTime = TimeOfDay.now();
+  TimeOfDay _selectedStartTime = TimeOfDay.now();
+  TimeOfDay _selectedEndTime = TimeOfDay(hour: TimeOfDay.now().hour + 1, minute: TimeOfDay.now().minute);
   String _selectedHari = 'Senin';
   bool _isEditing = false;
   int? _editingIndex;
@@ -44,66 +57,74 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
     'Sabtu',
   ];
 
-  List<Schedule> jadwalKuliah = [
-    Schedule(
-      mataKuliah: 'Pemrograman Mobile',
-      waktu: '09:00 - 10:40',
-      ruangan: 'Lab Komputer 3',
-      dosen: 'Dr. John Doe',
-      hari: 'Senin',
-    ),
-    Schedule(
-      mataKuliah: 'Basis Data Lanjut',
-      waktu: '11:00 - 12:40',
-      ruangan: 'Ruang 302',
-      dosen: 'Prof. Jane Smith',
-      hari: 'Senin',
-    ),
-    Schedule(
-      mataKuliah: 'Kecerdasan Buatan',
-      waktu: '13:00 - 14:40',
-      ruangan: 'Lab AI',
-      dosen: 'Dr. Robert Johnson',
-      hari: 'Selasa',
-    ),
-  ];
-
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-      initialEntryMode: TimePickerEntryMode.input,
-      useRootNavigator: true,
-      orientation: Orientation.portrait, // Force portrait to hide switch
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            timePickerTheme: TimePickerThemeData(
-              backgroundColor: Colors.white,
-              hourMinuteTextStyle: TextStyle(fontSize: 16),
-              dayPeriodTextStyle: TextStyle(fontSize: 16),
-              entryModeIconColor: Colors.transparent,
-              dayPeriodBorderSide: BorderSide.none,
-            ),
-          ),
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              alwaysUse24HourFormat: true,
-            ),
-            child: child!,
-          ),
-        );
-      },
-    );
-    if (picked != null) {
+  List<Schedule> jadwalKuliah = [];
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadSchedules();
+  }
+  
+  Future<void> _loadSchedules() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final schedules = await db.getAllSchedules();
       setState(() {
-        _selectedTime = picked;
-        _waktuController.text = '${_selectedTime.format(context)} - ${TimeOfDay(
-          hour: (_selectedTime.hour + 1) % 24,
-          minute: _selectedTime.minute,
-        ).format(context)}';
+        jadwalKuliah = schedules;
       });
+    } catch (e) {
+      print('Error loading schedules: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memuat jadwal: $e')),
+      );
     }
+  }
+  
+  // Modifikasi fungsi _saveSchedule
+  void _saveSchedule() {
+    if (_formKey.currentState!.validate()) {
+      final schedule = Schedule(
+        mataKuliah: _mataKuliahController.text,
+        waktu: "${_startTimeController.text} - ${_endTimeController.text}",
+        startTime: _startTimeController.text,
+        endTime: _endTimeController.text,
+        ruangan: _ruanganController.text,
+        dosen: _dosenController.text,
+        hari: _selectedHari,
+      );
+  
+      if (_isEditing && _editingIndex != null) {
+        // Update di database
+        // Catatan: Perlu menambahkan fungsi updateSchedule di DatabaseHelper
+        DatabaseHelper.instance.updateSchedule(jadwalKuliah[_editingIndex!].id!, schedule).then((_) {
+          setState(() {
+            jadwalKuliah[_editingIndex!] = schedule;
+            _resetForm();
+            Navigator.pop(context);
+          });
+        });
+      } else {
+        // Simpan ke database
+        DatabaseHelper.instance.insertSchedule(schedule).then((id) {
+          schedule.id = id; // Tambahkan id ke objek schedule
+          setState(() {
+            jadwalKuliah.add(schedule);
+            _resetForm();
+            Navigator.pop(context);
+          });
+        });
+      }
+    }
+  }
+  
+  // Tambahkan fungsi delete
+  void _deleteSchedule(int index) {
+    // Hapus dari database
+    DatabaseHelper.instance.deleteSchedule(jadwalKuliah[index].id!).then((_) {
+      setState(() {
+        jadwalKuliah.removeAt(index);
+      });
+    });
   }
 
   void _showAddEditDialog({Schedule? schedule, int? index}) {
@@ -113,6 +134,8 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
       _dosenController.text = schedule.dosen;
       _selectedHari = schedule.hari;
       _waktuController.text = schedule.waktu;
+      _startTimeController.text = schedule.startTime;
+      _endTimeController.text = schedule.endTime;
       _isEditing = true;
       _editingIndex = index;
     } else {
@@ -166,28 +189,58 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
                   },
                 ),
                 SizedBox(height: 16),
-                InkWell(
-                  onTap: () => _selectTime(context),
-                  child: IgnorePointer(
-                    child: TextFormField(
-                      controller: _waktuController,
-                      decoration: InputDecoration(
-                        labelText: 'Waktu',
-                        hintText: 'Klik untuk memilih waktu',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _selectStartTime(context),
+                        child: IgnorePointer(
+                          child: TextFormField(
+                            controller: _startTimeController,
+                            decoration: InputDecoration(
+                              labelText: 'Waktu Mulai',
+                              hintText: 'Klik untuk memilih',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: Icon(Icons.access_time),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Waktu mulai harus diisi';
+                              }
+                              return null;
+                            },
+                          ),
                         ),
-                        prefixIcon: Icon(Icons.access_time),
-                        suffixIcon: Icon(Icons.keyboard),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Waktu tidak boleh kosong';
-                        }
-                        return null;
-                      },
                     ),
-                  ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _selectEndTime(context),
+                        child: IgnorePointer(
+                          child: TextFormField(
+                            controller: _endTimeController,
+                            decoration: InputDecoration(
+                              labelText: 'Waktu Selesai',
+                              hintText: 'Klik untuk memilih',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: Icon(Icons.access_time),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Waktu selesai harus diisi';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 16),
                 TextFormField(
@@ -239,41 +292,13 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
     );
   }
 
-  void _saveSchedule() {
-    if (_formKey.currentState!.validate()) {
-      final schedule = Schedule(
-        mataKuliah: _mataKuliahController.text,
-        waktu: _waktuController.text,
-        ruangan: _ruanganController.text,
-        dosen: _dosenController.text,
-        hari: _selectedHari,
-      );
-
-      setState(() {
-        if (_isEditing && _editingIndex != null) {
-          jadwalKuliah[_editingIndex!] = schedule;
-        } else {
-          jadwalKuliah.add(schedule);
-        }
-      });
-
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isEditing ? 'Jadwal berhasil diupdate' : 'Jadwal berhasil ditambahkan'),
-          backgroundColor: Theme.of(context).primaryColor,
-        ),
-      );
-
-      _resetForm();
-    }
-  }
-
   void _resetForm() {
     _mataKuliahController.clear();
     _ruanganController.clear();
     _dosenController.clear();
     _waktuController.clear();
+    _startTimeController.clear();
+    _endTimeController.clear();
     _selectedHari = 'Senin';
     _isEditing = false;
     _editingIndex = null;
@@ -485,7 +510,7 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
                                           size: 16, color: Colors.grey[600]),
                                       SizedBox(width: 8),
                                       Text(
-                                        jadwal.waktu,
+                                        '${jadwal.startTime} - ${jadwal.endTime}',
                                         style: TextStyle(
                                           color: Colors.grey[600],
                                         ),
@@ -529,6 +554,47 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
     _ruanganController.dispose();
     _dosenController.dispose();
     _waktuController.dispose();
+    _startTimeController.dispose();
+    _endTimeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null && picked != _selectedTime) {
+      setState(() {
+        _selectedTime = picked;
+        _waktuController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      });
+    }
+  }
+  
+  Future<void> _selectStartTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedStartTime,
+    );
+    if (picked != null && picked != _selectedStartTime) {
+      setState(() {
+        _selectedStartTime = picked;
+        _startTimeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      });
+    }
+  }
+  
+  Future<void> _selectEndTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedEndTime,
+    );
+    if (picked != null && picked != _selectedEndTime) {
+      setState(() {
+        _selectedEndTime = picked;
+        _endTimeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      });
+    }
   }
 }

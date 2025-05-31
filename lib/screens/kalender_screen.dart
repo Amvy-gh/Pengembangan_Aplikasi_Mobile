@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../widgets/main_scaffold.dart';
+import '../utils/database_helper.dart';
+import 'jadwal_perkuliahan.dart';
 
 class Event {
   final String title;
@@ -17,6 +19,8 @@ class Event {
 }
 
 class KalenderScreen extends StatefulWidget {
+  const KalenderScreen({super.key});
+
   @override
   State<KalenderScreen> createState() => _KalenderScreenState();
 }
@@ -27,37 +31,105 @@ class _KalenderScreenState extends State<KalenderScreen> {
   DateTime? _selectedDay;
   Map<DateTime, List<Event>> _events = {};
 
+  // Di dalam class _KalenderScreenState
+  
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    // Example events
-    _events = {
-      DateTime.now(): [
-        Event(
-          title: 'Pemrograman Mobile',
-          description: 'Lab Komputer 3',
-          time: TimeOfDay(hour: 9, minute: 0),
-          color: Colors.blue,
-        ),
-        Event(
-          title: 'Basis Data Lanjut',
-          description: 'Ruang 302',
-          time: TimeOfDay(hour: 11, minute: 0),
-          color: Colors.orange,
-        ),
-      ],
-      DateTime.now().add(Duration(days: 1)): [
-        Event(
-          title: 'Kerja Kelompok UI/UX',
-          description: 'Online Meeting',
-          time: TimeOfDay(hour: 14, minute: 0),
-          color: Colors.purple,
-        ),
-      ],
-    };
+    _loadEvents();
   }
-
+  
+  Future<void> _loadEvents() async {
+    try {
+      final db = DatabaseHelper.instance;
+      final schedules = await db.getAllSchedules();
+      final teamSchedules = await db.getAllTeamSchedules();
+      
+      Map<DateTime, List<Event>> events = {};
+      
+      // Konversi jadwal kuliah ke events
+      for (var schedule in schedules) {
+        // Tentukan tanggal berdasarkan hari dalam seminggu
+        final dayIndex = _getDayIndex(schedule.hari);
+        if (dayIndex != -1) {
+          final date = _getNextDayOfWeek(dayIndex);
+          
+          // Parse waktu dari string format "09:00 - 10:40"
+          final timeString = schedule.waktu.split(' - ')[0];
+          final timeParts = timeString.split(':');
+          final hour = int.tryParse(timeParts[0]) ?? 0;
+          final minute = int.tryParse(timeParts[1]) ?? 0;
+          
+          if (!events.containsKey(date)) {
+            events[date] = [];
+          }
+          
+          events[date]!.add(Event(
+            title: schedule.mataKuliah,
+            description: '${schedule.ruangan} - ${schedule.dosen}',
+            time: TimeOfDay(hour: hour, minute: minute),
+            color: _getColorForCourse(schedule.mataKuliah),
+          ));
+        }
+      }
+      
+      // Konversi jadwal tim ke events
+      for (var teamSchedule in teamSchedules) {
+        final schedule = teamSchedule.schedule;
+        final dayIndex = _getDayIndex(schedule.hari);
+        if (dayIndex != -1) {
+          final date = _getNextDayOfWeek(dayIndex);
+          
+          final timeString = schedule.waktu.split(' - ')[0];
+          final timeParts = timeString.split(':');
+          final hour = int.tryParse(timeParts[0]) ?? 0;
+          final minute = int.tryParse(timeParts[1]) ?? 0;
+          
+          if (!events.containsKey(date)) {
+            events[date] = [];
+          }
+          
+          events[date]!.add(Event(
+            title: 'Kerja Kelompok - ${schedule.mataKuliah}',
+            description: '${schedule.ruangan} - ${teamSchedule.members.length} anggota',
+            time: TimeOfDay(hour: hour, minute: minute),
+            color: Colors.purple,
+          ));
+        }
+      }
+      
+      setState(() {
+        _events = events;
+      });
+    } catch (e) {
+      print('Error loading events: $e');
+    }
+  }
+  
+  // Fungsi helper untuk mendapatkan indeks hari
+  int _getDayIndex(String day) {
+    final days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    return days.indexWhere((d) => d.toLowerCase() == day.toLowerCase());
+  }
+  
+  // Fungsi untuk mendapatkan tanggal hari berikutnya dalam seminggu
+  DateTime _getNextDayOfWeek(int dayIndex) {
+    final now = DateTime.now();
+    final daysUntilNext = (dayIndex + 1 - now.weekday) % 7;
+    return now.add(Duration(days: daysUntilNext));
+  }
+  
+  // Fungsi helper untuk menentukan warna berdasarkan nama mata kuliah
+  Color _getColorForCourse(String courseName) {
+    if (courseName.toLowerCase().contains('mobile')) return Colors.blue;
+    if (courseName.toLowerCase().contains('data')) return Colors.orange;
+    if (courseName.toLowerCase().contains('ai') || 
+        courseName.toLowerCase().contains('kecerdasan')) return Colors.green;
+    if (courseName.toLowerCase().contains('kelompok')) return Colors.purple;
+    return Colors.teal;
+  }
+  
   List<Event> _getEventsForDay(DateTime day) {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }

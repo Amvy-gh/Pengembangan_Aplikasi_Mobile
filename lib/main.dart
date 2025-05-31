@@ -6,6 +6,8 @@ void main() {
 }
 
 class EduTimeApp extends StatelessWidget {
+  const EduTimeApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(

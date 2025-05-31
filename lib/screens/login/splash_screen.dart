@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -29,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    Future.delayed(Duration(seconds: 2), () {
+    Future.delayed(Duration(seconds: 4), () {
       if (mounted) {
         context.go('/welcome');
       }
@@ -57,31 +60,33 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Logo container
                     Container(
-                      padding: EdgeInsets.all(20),
+                      width: 150,
+                      height: 150,
+                      padding: EdgeInsets.all(15),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Color(0xFF4A7AB9).withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        Icons.schedule,
-                        size: 80,
-                        color: Theme.of(context).primaryColor,
+                      child: Image.asset(
+                        'assets/images/logo.png', // Path to your logo image
+                        fit: BoxFit.contain,
                       ),
                     ),
                     SizedBox(height: 24),
                     Text(
                       'EduTime',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        color: Color(0xFF4A7AB9),
                       ),
                     ),
                     SizedBox(height: 8),
                     Text(
                       'Atur Waktumu dengan Mudah',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins(
                         fontSize: 16,
                         color: Colors.grey[600],
                       ),
