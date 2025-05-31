@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -9,10 +11,13 @@ class DatabaseHelper {
   static Database? _database;
 
   DatabaseHelper._init() {
-    // Initialize FFI loader
-    sqfliteFfiInit();
-    // Set the database factory
-    databaseFactory = databaseFactoryFfi;
+    // Initialize FFI loader only on desktop platforms
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      // For desktop platforms, use FFI
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+    // On mobile platforms (Android/iOS), the regular sqflite plugin will be used automatically
   }
 
   Future<Database> get database async {
