@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "979089203708",
+    "project_id": "edutime-7e6ff",
+    "storage_bucket": "edutime-7e6ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979089203708:android:40490336b9164c3c00d279",
+        "android_client_info": {
+          "package_name": "com.example.edu_time"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "979089203708-jifpaf1fh08eval85gr11l6vgov1ms12.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBs5BujDehSMS5FEZMb-sce_WxUAJNut8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "979089203708-jifpaf1fh08eval85gr11l6vgov1ms12.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979089203708:android:d616dbaa570133ba00d279",
+        "android_client_info": {
+          "package_name": "com.pam.eduTime"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "979089203708-jifpaf1fh08eval85gr11l6vgov1ms12.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBs5BujDehSMS5FEZMb-sce_WxUAJNut8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "979089203708-jifpaf1fh08eval85gr11l6vgov1ms12.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

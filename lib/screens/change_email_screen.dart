@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChangeEmailScreen extends StatefulWidget {
   const ChangeEmailScreen({super.key});
@@ -10,9 +11,21 @@ class ChangeEmailScreen extends StatefulWidget {
 
 class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _currentEmailController = TextEditingController(text: 'john.doe@example.com');
   final _newEmailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  bool isLoading = false;
+  String? errorMessage;
+  late String currentEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get current user email
+    final user = _auth.currentUser;
+    currentEmail = user?.email ?? 'Tidak ada email';
+  }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -21,7 +34,88 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
     if (!value.contains('@')) {
       return 'Email tidak valid';
     }
+    if (value == currentEmail) {
+      return 'Email baru tidak boleh sama dengan email saat ini';
+    }
     return null;
+  }
+
+  Future<void> _updateEmail() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+      });
+
+      try {
+        // Get current user
+        final user = _auth.currentUser;
+        
+        if (user == null) {
+          throw FirebaseAuthException(
+            code: 'user-not-found',
+            message: 'Pengguna tidak ditemukan. Silakan login kembali.',
+          );
+        }
+
+        // Re-authenticate user before changing email
+        AuthCredential credential = EmailAuthProvider.credential(
+          email: currentEmail,
+          password: _passwordController.text.trim(),
+        );
+        
+        await user.reauthenticateWithCredential(credential);
+        
+        // Update email
+        await user.updateEmail(_newEmailController.text.trim());
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Email berhasil diperbarui'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          context.pop();
+        }
+      } on FirebaseAuthException catch (e) {
+        setState(() {
+          switch (e.code) {
+            case 'user-not-found':
+              errorMessage = 'Pengguna tidak ditemukan. Silakan login kembali.';
+              break;
+            case 'wrong-password':
+              errorMessage = 'Password salah';
+              break;
+            case 'invalid-email':
+              errorMessage = 'Email tidak valid';
+              break;
+            case 'user-disabled':
+              errorMessage = 'Akun dinonaktifkan';
+              break;
+            case 'requires-recent-login':
+              errorMessage = 'Silakan login ulang untuk mengubah email';
+              break;
+            case 'email-already-in-use':
+              errorMessage = 'Email sudah digunakan oleh akun lain';
+              break;
+            case 'network-request-failed':
+              errorMessage = 'Masalah koneksi jaringan';
+              break;
+            default:
+              errorMessage = 'Terjadi kesalahan: ${e.message}';
+          }
+        });
+      } catch (e) {
+        setState(() {
+          errorMessage = 'Terjadi kesalahan: $e';
+        });
+      } finally {
+        if (mounted) {
+          setState(() => isLoading = false);
+        }
+      }
+    }
   }
 
   @override
@@ -50,7 +144,7 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
               ),
               SizedBox(height: 8),
               TextFormField(
-                controller: _currentEmailController,
+                initialValue: currentEmail,
                 enabled: false,
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.email_outlined),
@@ -60,6 +154,34 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
                 ),
               ),
               SizedBox(height: 24),
+              
+              // Display error message if any
+              if (errorMessage != null) ...[
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(
+                            color: Colors.red.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 24),
+              ],
+              
               TextFormField(
                 controller: _newEmailController,
                 decoration: InputDecoration(
@@ -76,7 +198,8 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Password Saat Ini',
+                  helperText: 'Diperlukan untuk verifikasi',
                   prefixIcon: Icon(Icons.lock_outline),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -88,24 +211,23 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
               ),
               SizedBox(height: 32),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Email berhasil diperbarui'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    context.pop();
-                  }
-                },
+                onPressed: isLoading ? null : _updateEmail,
                 style: ElevatedButton.styleFrom(
                   minimumSize: Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text('Simpan'),
+                child: isLoading
+                  ? SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text('Simpan'),
               ),
             ],
           ),
@@ -116,7 +238,6 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
 
   @override
   void dispose() {
-    _currentEmailController.dispose();
     _newEmailController.dispose();
     _passwordController.dispose();
     super.dispose();

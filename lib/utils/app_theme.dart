@@ -22,7 +22,7 @@ class AppTheme {
       iconTheme: IconThemeData(color: Colors.black),
     ),
     scaffoldBackgroundColor: Colors.grey[50],
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -83,7 +83,7 @@ class AppTheme {
       centerTitle: true,
     ),
     scaffoldBackgroundColor: Color(0xFF121212),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
