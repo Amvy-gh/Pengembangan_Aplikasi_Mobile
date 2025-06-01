@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../utils/database_helper.dart'; // Update this import path to match your project structure
+import '../../utils/database_helper.dart';
+import '../../models/user_profile.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -86,10 +87,10 @@ class _AuthScreenState extends State<AuthScreen> {
           // Save user profile to SQLite
           final newProfile = UserProfile(
             uid: userCredential.user!.uid,
-            name: _nameController.text.trim(),
+            displayName: _nameController.text.trim(),
             email: _emailController.text.trim(),
-            nim: _nimController.text.trim(),
-            prodi: _prodiController.text.trim(),
+            studentId: _nimController.text.trim(),
+            department: _prodiController.text.trim(),
           );
           
           await DatabaseHelper.instance.saveUserProfile(newProfile);

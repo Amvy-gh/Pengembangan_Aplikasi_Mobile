@@ -831,11 +831,211 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
 
   // Modify the _findOptimalSchedules method to show loading and results:
   Future<void> _findOptimalSchedules() async {
-    // Show processing dialog
-    showDialog(
+    // Show processing dialog first and wait for it to be displayed
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
+        // Start the CSP processing after the dialog is shown
+        Future.delayed(Duration(milliseconds: 500), () async {
+          try {
+            // Define domain for days and time slots
+            final List<String> days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
+            final List<List<String>> timeSlots = [
+              ["07:30", "09:00"], 
+              ["09:30", "12:00"], 
+              ["13:00", "15:30"], 
+              ["15:30", "17:10"]
+            ];
+            
+            final db = DatabaseHelper.instance;
+            final regularSchedules = await db.getAllSchedules();
+            final teamSchedules = await db.getAllTeamSchedules();
+            
+            // Create a map to store each member's busy schedules
+            Map<String, List<Map<String, dynamic>>> memberBusySchedules = {};
+            
+            // Get all team members and ensure current user is included
+            Set<String> allMembers = {currentUser}; // Always include current user
+            
+            // Add other team members from existing team schedules
+            for (var teamSchedule in teamSchedules) {
+              for (var member in teamSchedule.members) {
+                // Only add actual team members, not professors from regular schedules
+                if (member.name != currentUser) {
+                  allMembers.add(member.name);
+                }
+              }
+            }
+            
+            // Initialize busy schedules for all members
+            for (var member in allMembers) {
+              memberBusySchedules[member] = [];
+            }
+            
+            // Add regular schedules as constraints for current user only
+            for (var schedule in regularSchedules) {
+              memberBusySchedules[currentUser]!.add({
+                'day': schedule.hari,
+                'startTime': schedule.startTime,
+                'endTime': schedule.endTime,
+                'location': schedule.ruangan
+              });
+            }
+            
+            // Add team schedules as constraints for all members
+            for (var teamSchedule in teamSchedules) {
+              for (var member in teamSchedule.members) {
+                if (memberBusySchedules.containsKey(member.name)) {
+                  memberBusySchedules[member.name]!.add({
+                    'day': teamSchedule.schedule.hari,
+                    'startTime': teamSchedule.schedule.startTime,
+                    'endTime': teamSchedule.schedule.endTime,
+                    'location': teamSchedule.schedule.ruangan
+                  });
+                }
+              }
+            }
+            
+            // Generate all possible day-time slot combinations
+            List<Map<String, dynamic>> allPossibleSlots = [];
+            for (var day in days) {
+              for (var slot in timeSlots) {
+                allPossibleSlots.add({
+                  'day': day,
+                  'startTime': slot[0],
+                  'endTime': slot[1]
+                });
+              }
+            }
+            
+            // Find available members for each time slot
+            List<Map<String, dynamic>> availableSlots = [];
+            
+            for (var slot in allPossibleSlots) {
+              String day = slot['day'];
+              String startTime = slot['startTime'];
+              String endTime = slot['endTime'];
+              int startMinutes = _timeToMinutes(startTime);
+              int endMinutes = _timeToMinutes(endTime);
+              
+              // Track available members and their last known location
+              List<String> availableMembers = [];
+              Map<String, int> locationFrequency = {};
+              
+              // Check each member's availability for this slot
+              for (var member in allMembers) {
+                bool isAvailable = true;
+                String? lastLocation;
+                
+                // Check if this slot conflicts with any of the member's busy schedules
+                for (var busySlot in memberBusySchedules[member] ?? []) {
+                  if (busySlot['day'] == day) {
+                    int busyStartMinutes = _timeToMinutes(busySlot['startTime']);
+                    int busyEndMinutes = _timeToMinutes(busySlot['endTime']);
+                    
+                    // Check for time overlap
+                    if (!(busyEndMinutes <= startMinutes || busyStartMinutes >= endMinutes)) {
+                      isAvailable = false;
+                      break;
+                    }
+                    
+                    // Keep track of last location
+                    lastLocation = busySlot['location'];
+                  }
+                }
+                
+                if (isAvailable) {
+                  availableMembers.add(member);
+                  if (lastLocation != null) {
+                    locationFrequency[lastLocation] = (locationFrequency[lastLocation] ?? 0) + 1;
+                  }
+                }
+              }
+              
+              // Find optimal location based on frequency
+              String? optimalLocation;
+              int maxFrequency = 0;
+              locationFrequency.forEach((location, frequency) {
+                if (frequency > maxFrequency) {
+                  maxFrequency = frequency;
+                  optimalLocation = location;
+                }
+              });
+              
+              // Only add slots with at least one available member
+              if (availableMembers.isNotEmpty) {
+                availableSlots.add({
+                  'day': day,
+                  'time': '$startTime-$endTime',
+                  'availableMembers': availableMembers,
+                  'memberCount': availableMembers.length,
+                  'optimalLocation': optimalLocation ?? 'Lokasi belum ditentukan'
+                });
+              }
+            }
+            
+            // Sort by number of available members (descending)
+            availableSlots.sort((a, b) => b['memberCount'].compareTo(a['memberCount']));
+            
+            // Convert to OptimalSchedule objects
+            List<OptimalSchedule> possibleSchedules = [];
+            for (var slot in availableSlots) {
+              possibleSchedules.add(OptimalSchedule(
+                day: slot['day'],
+                time: slot['time'],
+                location: slot['optimalLocation'],
+                members: List<String>.from(slot['availableMembers']),
+              ));
+            }
+            
+            // Close the dialog
+            Navigator.of(context).pop();
+            
+            if (possibleSchedules.isEmpty) {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('Tidak Ada Jadwal Optimal'),
+                    content: Text('Tidak ditemukan jadwal yang cocok untuk semua anggota tim. Coba tambahkan lebih banyak slot waktu atau ubah jadwal anggota.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('OK'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            } else {
+              // Show selection dialog for optimal schedules
+              _showOptimalScheduleSelectionDialog(possibleSchedules);
+            }
+          } catch (e) {
+            // Close the dialog first
+            Navigator.of(context).pop();
+            
+            // Then show error dialog
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: Text('Error'),
+                  content: Text('Terjadi kesalahan saat mencari jadwal optimal: $e'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text('OK'),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
+        });
+        
+        // Return the dialog widget
         return AlertDialog(
           title: Text('Memproses CSP'),
           content: Column(
@@ -849,181 +1049,38 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
         );
       },
     );
-    
-    try {
-      // Define domain for days and time slots
-      final List<String> days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
-      final List<List<String>> timeSlots = [
-        ["07:30", "09:00"], 
-        ["09:30", "12:00"], 
-        ["13:00", "15:30"], 
-        ["15:30", "17:10"]
-      ];
-      
-      final db = DatabaseHelper.instance;
-      final regularSchedules = await db.getAllSchedules();
-      final teamSchedules = await db.getAllTeamSchedules();
-      
-      // Create a map of member schedules for CSP processing
-      Map<String, List<List<dynamic>>> memberSchedules = {};
-      
-      // Add regular schedules to member constraints
-      for (var schedule in regularSchedules) {
-        String memberName = schedule.dosen; // Using professor name as member for regular schedules
-        
-        if (!memberSchedules.containsKey(memberName)) {
-          memberSchedules[memberName] = [];
-        }
-        
-        memberSchedules[memberName]!.add([
-          schedule.hari,
-          "${schedule.startTime}-${schedule.endTime}",
-          schedule.ruangan
-        ]);
-      }
-      
-      // Add team schedules to member constraints
-      for (var teamSchedule in teamSchedules) {
-        for (var member in teamSchedule.members) {
-          String memberName = member.name;
-          
-          if (!memberSchedules.containsKey(memberName)) {
-            memberSchedules[memberName] = [];
-          }
-          
-          memberSchedules[memberName]!.add([
-            teamSchedule.schedule.hari,
-            "${teamSchedule.schedule.startTime}-${teamSchedule.schedule.endTime}",
-            teamSchedule.schedule.ruangan
-          ]);
-        }
-      }
-      
-      // Get all team members
-      Set<String> allMembers = {};
-      for (var teamSchedule in teamSchedules) {
-        for (var member in teamSchedule.members) {
-          allMembers.add(member.name);
-        }
-      }
-      
-      // If no team members found, use a default set
-      if (allMembers.isEmpty) {
-        allMembers = {'Anggota 1', 'Anggota 2', 'Anggota 3'};
-      }
-      
-      // Generate all possible day-time slot combinations using forward checking
-      List<List<dynamic>> combinations = _forwardChecking(days, timeSlots);
-      
-      // Find optimal meeting times using CSP
-      Map<String, Map<String, dynamic>> freeTimesMap = _findGroupMeetingTimes(memberSchedules, combinations);
-      
-      // Convert results to a list of OptimalSchedule objects
-      List<OptimalSchedule> possibleSchedules = [];
-      
-      // Sort by number of available members (descending)
-      var sortedFreeTimes = freeTimesMap.entries.toList()
-        ..sort((a, b) => b.value['count'].compareTo(a.value['count']));
-      
-      for (var entry in sortedFreeTimes) {
-        var key = entry.key.split('|');
-        var day = key[0];
-        var time = key[1];
-        var value = entry.value;
-        
-        possibleSchedules.add(OptimalSchedule(
-          day: day,
-          time: time,
-          location: value['optimal_location'] ?? 'Lokasi belum ditentukan',
-          members: List<String>.from(value['members']),
-        ));
-      }
-      
-      // Close the processing dialog
-      Navigator.of(context).pop();
-      
-      if (possibleSchedules.isEmpty) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('Tidak Ada Jadwal Optimal'),
-              content: Text('Tidak ditemukan jadwal yang cocok untuk semua anggota tim. Coba tambahkan lebih banyak slot waktu atau ubah jadwal anggota.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-      } else {
-        // Show results selection dialog
-        _showOptimalScheduleSelectionDialog(possibleSchedules);
-      }
-      
-    } catch (e) {
-      // Close the processing dialog
-      Navigator.of(context).pop();
-      print('Error finding optimal schedules: $e');
-      
-      // Show error dialog
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('Error'),
-            content: Text('Terjadi kesalahan saat memproses CSP: $e'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('OK'),
-              ),
-            ],
-          );
-        },
-      );
-    }
+  }
+
+  // Helper method to convert time string to minutes since midnight
+  int _timeToMinutes(String timeStr) {
+    List<String> parts = timeStr.split(':');
+    int hours = int.parse(parts[0]);
+    int minutes = int.parse(parts[1]);
+    return hours * 60 + minutes;
   }
 
   // Helper method for CSP algorithm: Forward checking to generate all possible combinations
-  List<List<dynamic>> _forwardChecking(List<String> days, List<List<String>> timeSlots, 
-      {int currentDayIdx = 0, List<List<dynamic>>? currentCombination, List<List<dynamic>>? results}) {
-    
-    results ??= [];
+  List<List<dynamic>> _forwardChecking(List<String> days, List<List<String>> timeSlots, {int currentDayIdx = 0, List<List<dynamic>>? currentCombination, List<List<dynamic>>? results}) {
     currentCombination ??= [];
-    
+    results ??= [];
+
     // If we've processed all days, add the current combination to results
     if (currentDayIdx == days.length) {
-      results.add(List<List<dynamic>>.from(currentCombination));
+      results.add(List.from(currentCombination));
       return results;
     }
-    
-    // Try each time slot for the current day
+
+    // For each time slot, add it to the current combination and recurse
     for (var slot in timeSlots) {
-      var newCombination = List<List<dynamic>>.from(currentCombination);
-      newCombination.add([days[currentDayIdx], slot]);
-      
-      _forwardChecking(
-        days, 
-        timeSlots,
-        currentDayIdx: currentDayIdx + 1,
-        currentCombination: newCombination,
-        results: results
-      );
+      currentCombination.add([days[currentDayIdx], slot]);
+      _forwardChecking(days, timeSlots, currentDayIdx: currentDayIdx + 1, currentCombination: currentCombination, results: results);
+      currentCombination.removeLast();
     }
-    
+
     return results;
   }
   
-  // Helper method: Convert time from HH:MM format to minutes since midnight
-  int _timeToMinutes(String time) {
-    final parts = time.split(':');
-    final hours = int.parse(parts[0]);
-    final minutes = int.parse(parts[1]);
-    return hours * 60 + minutes;
-  }
+  // This method has been moved to line 1055
   
   // Helper method for CSP algorithm: Find optimal meeting times based on member schedules
   Map<String, Map<String, dynamic>> _findGroupMeetingTimes(

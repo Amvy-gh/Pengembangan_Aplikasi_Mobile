@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/main_scaffold.dart';
 import '../utils/database_helper.dart';
+import '../models/user_profile.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -43,9 +44,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
         setState(() {
           if (userProfile != null) {
-            _userName = userProfile.name;
-            _userNim = userProfile.nim;
-            _userProdi = userProfile.prodi;
+            _userName = userProfile.displayName ?? '';
+            _userNim = userProfile.studentId ?? '-';
+            _userProdi = userProfile.department ?? '-';
           } else {
             // Jika tidak ada data di SQLite, gunakan data dari Firebase Auth
             _userName = currentUser.displayName ?? 'Pengguna';

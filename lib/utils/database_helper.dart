@@ -1,46 +1,11 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite/sqflite.dart';
+import '../models/user_profile.dart';
 import 'package:path/path.dart';
 import '../screens/jadwal_perkuliahan.dart';
 import '../screens/jadwal_kerja_kelompok.dart';
-
-// Model untuk User Profile
-class UserProfile {
-  final String uid;
-  final String name;
-  final String email;
-  final String nim;
-  final String prodi;
-
-  UserProfile({
-    required this.uid,
-    required this.name,
-    required this.email,
-    required this.nim,
-    required this.prodi,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'uid': uid,
-      'name': name,
-      'email': email,
-      'nim': nim,
-      'prodi': prodi,
-    };
-  }
-
-  static UserProfile fromMap(Map<String, dynamic> map) {
-    return UserProfile(
-      uid: map['uid'],
-      name: map['name'],
-      email: map['email'],
-      nim: map['nim'],
-      prodi: map['prodi'],
-    );
-  }
-}
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -58,7 +23,7 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('edutime.db');
+    _database = await _initDB('schedule.db');
     return _database!;
   }
 
@@ -66,19 +31,18 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
     
-    // Debug only: Uncomment to reset database during development
-    /*
+    // Delete existing database to recreate with new schema
+    // This is a temporary solution for development - in production, you'd use migrations
     try {
       await deleteDatabase(path);
       print('Deleted existing database to recreate with new schema');
     } catch (e) {
       print('No existing database to delete: $e');
     }
-    */
 
     return await openDatabase(
       path,
-      version: 3, // Increment version number to include user profiles
+      version: 2, // Increment version number
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -88,7 +52,7 @@ class DatabaseHelper {
     print('Upgrading database from version $oldVersion to $newVersion');
   
     if (oldVersion < 2) {
-      // Add the tables for version 2
+      // Add the new tables for version 2
       try {
         // Check if team_schedules table has the necessary columns
         final tableInfo = await db.rawQuery("PRAGMA table_info(team_schedules)");
@@ -165,28 +129,22 @@ class DatabaseHelper {
         print('Error during database upgrade: $e');
       }
     }
-    
-    if (oldVersion < 3) {
-      // Add the user_profiles table for version 3
-      try {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS user_profiles(
-            uid TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            nim TEXT NOT NULL,
-            prodi TEXT NOT NULL
-          )
-        ''');
-        print('Created user_profiles table');
-      } catch (e) {
-        print('Error creating user_profiles table: $e');
-      }
-    }
   }
   
   Future<void> _createDB(Database db, int version) async {
-    // Create schedules tables
+    // Create user profiles table
+    await db.execute('''
+      CREATE TABLE user_profiles(
+        uid TEXT PRIMARY KEY,
+        display_name TEXT,
+        email TEXT,
+        photo_url TEXT,
+        phone_number TEXT,
+        department TEXT,
+        student_id TEXT
+      )
+    ''');
+    
     await db.execute('''
       CREATE TABLE schedules(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -242,68 +200,6 @@ class DatabaseHelper {
         FOREIGN KEY (optimal_schedule_id) REFERENCES selected_optimal_schedules (id)
       )
     ''');
-    
-    // Create user profiles table
-    await db.execute('''
-      CREATE TABLE user_profiles(
-        uid TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        nim TEXT NOT NULL,
-        prodi TEXT NOT NULL
-      )
-    ''');
-  }
-
-  // User Profile Methods
-  Future<int> saveUserProfile(UserProfile profile) async {
-    final db = await instance.database;
-    
-    // Check if user exists
-    final existingUser = await db.query(
-      'user_profiles',
-      where: 'uid = ?',
-      whereArgs: [profile.uid],
-    );
-
-    if (existingUser.isNotEmpty) {
-      // Update existing user
-      return await db.update(
-        'user_profiles',
-        profile.toMap(),
-        where: 'uid = ?',
-        whereArgs: [profile.uid],
-      );
-    } else {
-      // Insert new user
-      return await db.insert('user_profiles', profile.toMap());
-    }
-  }
-
-  // Get user profile by uid
-  Future<UserProfile?> getUserProfile(String uid) async {
-    final db = await instance.database;
-    final maps = await db.query(
-      'user_profiles',
-      where: 'uid = ?',
-      whereArgs: [uid],
-    );
-
-    if (maps.isNotEmpty) {
-      return UserProfile.fromMap(maps.first);
-    }
-    return null;
-  }
-
-  // Update user profile
-  Future<int> updateUserProfile(UserProfile profile) async {
-    final db = await instance.database;
-    return await db.update(
-      'user_profiles',
-      profile.toMap(),
-      where: 'uid = ?',
-      whereArgs: [profile.uid],
-    );
   }
 
   // Schedule methods
@@ -541,6 +437,12 @@ class DatabaseHelper {
     );
   }
 
+  Future<void> deleteAllTeamSchedules() async {
+    final db = await instance.database;
+    await db.delete('team_schedules');
+    await db.delete('team_members');
+  }
+
   Future<List<TeamSchedule>> getAllTeamSchedules() async {
     final db = await instance.database;
     final teamSchedules = await db.query('team_schedules');
@@ -678,6 +580,61 @@ class DatabaseHelper {
       location: schedule['location'] as String,
       members: members,
       isSelected: true,
+    );
+  }
+  
+  // User Profile Methods
+  
+  // Save or update a user profile
+  Future<int> saveUserProfile(UserProfile profile) async {
+    final db = await instance.database;
+    
+    // Check if profile already exists
+    final existingProfile = await db.query(
+      'user_profiles',
+      where: 'uid = ?',
+      whereArgs: [profile.uid],
+    );
+    
+    if (existingProfile.isNotEmpty) {
+      // Update existing profile
+      return await db.update(
+        'user_profiles',
+        profile.toMap(),
+        where: 'uid = ?',
+        whereArgs: [profile.uid],
+      );
+    } else {
+      // Insert new profile
+      return await db.insert('user_profiles', profile.toMap());
+    }
+  }
+  
+  // Get a user profile by uid
+  Future<UserProfile?> getUserProfile(String uid) async {
+    final db = await instance.database;
+    
+    final maps = await db.query(
+      'user_profiles',
+      where: 'uid = ?',
+      whereArgs: [uid],
+    );
+    
+    if (maps.isNotEmpty) {
+      return UserProfile.fromMap(maps.first);
+    }
+    
+    return null;
+  }
+  
+  // Delete a user profile
+  Future<int> deleteUserProfile(String uid) async {
+    final db = await instance.database;
+    
+    return await db.delete(
+      'user_profiles',
+      where: 'uid = ?',
+      whereArgs: [uid],
     );
   }
 }

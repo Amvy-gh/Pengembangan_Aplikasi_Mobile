@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../utils/database_helper.dart'; // Update this import path to match your project structure
+import '../utils/database_helper.dart';
+import '../models/user_profile.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -45,9 +46,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         
         if (userProfile != null) {
           setState(() {
-            _nameController.text = userProfile.name;
-            _nimController.text = userProfile.nim;
-            _prodiController.text = userProfile.prodi;
+            _nameController.text = userProfile.displayName ?? '';
+            _nimController.text = userProfile.studentId ?? '';
+            _prodiController.text = userProfile.department ?? '';
           });
         } else {
           // Jika tidak ada data di SQLite, gunakan data dari Firebase Auth
@@ -85,10 +86,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Update data di SQLite
           final updatedProfile = UserProfile(
             uid: currentUser.uid,
-            name: _nameController.text.trim(),
+            displayName: _nameController.text.trim(),
             email: currentUser.email ?? '',
-            nim: _nimController.text.trim(),
-            prodi: _prodiController.text.trim(),
+            studentId: _nimController.text.trim(),
+            department: _prodiController.text.trim(),
           );
           
           await DatabaseHelper.instance.saveUserProfile(updatedProfile);
