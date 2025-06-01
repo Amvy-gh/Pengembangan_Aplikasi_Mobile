@@ -134,44 +134,14 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
     }
   }
   
-  // Fungsi delete dengan konfirmasi dialog
-  void _deleteSchedule(Schedule schedule) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Hapus Jadwal'),
-        content: Text('Apakah Anda yakin ingin menghapus jadwal ini?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              // Hapus dari database
-              if (schedule.id != null) {
-                DatabaseHelper.instance.deleteSchedule(schedule.id!);
-              }
-              setState(() {
-                jadwalKuliah.removeWhere((j) => 
-                  j.mataKuliah == schedule.mataKuliah && 
-                  j.hari == schedule.hari && 
-                  j.startTime == schedule.startTime);
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Jadwal berhasil dihapus'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            child: Text('Hapus'),
-          ),
-        ],
-      ),
-    );
+  // Tambahkan fungsi delete
+  void _deleteSchedule(int index) {
+    // Hapus dari database
+    DatabaseHelper.instance.deleteSchedule(jadwalKuliah[index].id!).then((_) {
+      setState(() {
+        jadwalKuliah.removeAt(index);
+      });
+    });
   }
 
   void _showAddEditDialog({Schedule? schedule, int? index}) {
@@ -562,126 +532,152 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
               itemCount: jadwalKuliah.where((j) => j.hari == _selectedHari).length,
               itemBuilder: (context, index) {
                 final jadwal = jadwalKuliah.where((j) => j.hari == _selectedHari).toList()[index];
-                return Card(
-                  margin: EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                return Dismissible(
+                  key: Key(jadwal.mataKuliah),
+                  background: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: EdgeInsets.only(right: 20),
+                    child: Icon(Icons.delete, color: Colors.white),
                   ),
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  direction: DismissDirection.endToStart,
+                  confirmDismiss: (direction) async {
+                    bool? result = await showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Hapus Jadwal'),
+                        content: Text('Apakah anda yakin ingin menghapus jadwal ini?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: Text('Batal'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context, true);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Jadwal berhasil dihapus'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            },
+                            child: Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (result == true) {
+                      setState(() {
+                        jadwalKuliah.removeAt(index);
+                      });
+                    }
+                    return result ?? false;
+                  },
+                  child: Card(
+                    margin: EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: InkWell(
+                      onTap: () => _showAddEditDialog(
+                        schedule: jadwal,
+                        index: index,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    jadwal.mataKuliah,
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    jadwal.dosen,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                             Row(
                               children: [
                                 Container(
-                                  margin: EdgeInsets.only(right: 8),
+                                  padding: EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Color(0xFF4A7AB9),
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: Theme.of(context)
+                                        .primaryColor
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () => _showAddEditDialog(
-                                        schedule: jadwal,
-                                        index: index,
-                                      ),
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.edit, color: Colors.white, size: 16),
-                                            SizedBox(width: 4),
-                                            Text('Edit', style: TextStyle(color: Colors.white, fontSize: 12)),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                                  child: Icon(
+                                    Icons.school,
+                                    color: Theme.of(context).primaryColor,
                                   ),
                                 ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () => _deleteSchedule(jadwal),
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.delete, color: Colors.white, size: 16),
-                                            SizedBox(width: 4),
-                                            Text('Hapus', style: TextStyle(color: Colors.white, fontSize: 12)),
-                                          ],
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        jadwal.mataKuliah,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
                                         ),
                                       ),
-                                    ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        jadwal.dosen,
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.edit),
+                                  onPressed: () => _showAddEditDialog(
+                                    schedule: jadwal,
+                                    index: index,
+                                  ),
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ],
+                            ),
+                            Divider(height: 24),
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today,
+                                    size: 16, color: Colors.grey[600]),
+                                SizedBox(width: 8),
+                                Text(
+                                  jadwal.hari,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                SizedBox(width: 16),
+                                Icon(Icons.access_time,
+                                    size: 16, color: Colors.grey[600]),
+                                SizedBox(width: 8),
+                                Text(
+                                  '${jadwal.startTime} - ${jadwal.endTime}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(Icons.location_on,
+                                    size: 16, color: Colors.grey[600]),
+                                SizedBox(width: 8),
+                                Text(
+                                  jadwal.ruangan,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        Divider(height: 24),
-                        Row(
-                          children: [
-                            Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                            SizedBox(width: 8),
-                            Text(
-                              jadwal.hari,
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            SizedBox(width: 16),
-                            Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                            SizedBox(width: 8),
-                            Text(
-                              '${jadwal.startTime} - ${jadwal.endTime}',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                            SizedBox(width: 8),
-                            Text(
-                              jadwal.ruangan,
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 );
