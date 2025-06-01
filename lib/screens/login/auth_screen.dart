@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../utils/database_helper.dart';
 import '../../models/user_profile.dart';
 
@@ -172,17 +173,21 @@ class _AuthScreenState extends State<AuthScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: 40),
-                Icon(
-                  Icons.schedule,
-                  size: 64,
-                  color: Theme.of(context).primaryColor,
+                Container(
+                  width: 100,
+                  height: 100,
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 SizedBox(height: 24),
                 Text(
                   isLogin ? 'Selamat Datang Kembali!' : 'Buat Akun Baru',
-                  style: TextStyle(
+                  style: GoogleFonts.poppins(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    color: const Color(0xFF3B6AA0),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -191,7 +196,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   isLogin 
                     ? 'Masuk untuk melanjutkan'
                     : 'Daftar untuk mulai mengatur jadwal',
-                  style: TextStyle(
+                  style: GoogleFonts.poppins(
                     color: Colors.grey[600],
                   ),
                   textAlign: TextAlign.center,
@@ -214,9 +219,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         Expanded(
                           child: Text(
                             errorMessage!,
-                            style: TextStyle(
-                              color: Colors.red.shade800,
-                            ),
+                            style: GoogleFonts.poppins(color: Colors.red[700]),
                           ),
                         ),
                       ],
@@ -230,6 +233,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     controller: _nameController,
                     decoration: InputDecoration(
                       labelText: 'Nama Lengkap',
+                      labelStyle: GoogleFonts.poppins(),
                       prefixIcon: Icon(Icons.person_outline),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -239,14 +243,15 @@ class _AuthScreenState extends State<AuthScreen> {
                         vertical: 16,
                       ),
                     ),
+                    style: GoogleFonts.poppins(),
                     validator: (value) => _validateNotEmpty(value, 'Nama'),
                   ),
                   SizedBox(height: 16),
-                  // Tambahan field NIM
                   TextFormField(
                     controller: _nimController,
                     decoration: InputDecoration(
                       labelText: 'NIM',
+                      labelStyle: GoogleFonts.poppins(),
                       prefixIcon: Icon(Icons.badge_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -256,15 +261,15 @@ class _AuthScreenState extends State<AuthScreen> {
                         vertical: 16,
                       ),
                     ),
+                    style: GoogleFonts.poppins(),
                     validator: (value) => _validateNotEmpty(value, 'NIM'),
-                    keyboardType: TextInputType.number,
                   ),
                   SizedBox(height: 16),
-                  // Tambahan field Prodi
                   TextFormField(
                     controller: _prodiController,
                     decoration: InputDecoration(
                       labelText: 'Program Studi',
+                      labelStyle: GoogleFonts.poppins(),
                       prefixIcon: Icon(Icons.school_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -274,14 +279,16 @@ class _AuthScreenState extends State<AuthScreen> {
                         vertical: 16,
                       ),
                     ),
+                    style: GoogleFonts.poppins(),
                     validator: (value) => _validateNotEmpty(value, 'Program Studi'),
                   ),
-                  SizedBox(height: 16),
                 ],
                 TextFormField(
                   controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: 'Email',
+                    labelStyle: GoogleFonts.poppins(),
                     prefixIcon: Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -291,23 +298,26 @@ class _AuthScreenState extends State<AuthScreen> {
                       vertical: 16,
                     ),
                   ),
-                  keyboardType: TextInputType.emailAddress,
+                  style: GoogleFonts.poppins(),
                   validator: _validateEmail,
                 ),
                 SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
+                  obscureText: obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
+                    labelStyle: GoogleFonts.poppins(),
                     prefixIcon: Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        obscurePassword 
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                        obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                       ),
-                      onPressed: () => setState(() => 
-                        obscurePassword = !obscurePassword),
+                      onPressed: () {
+                        setState(() {
+                          obscurePassword = !obscurePassword;
+                        });
+                      },
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -317,13 +327,13 @@ class _AuthScreenState extends State<AuthScreen> {
                       vertical: 16,
                     ),
                   ),
-                  obscureText: obscurePassword,
+                  style: GoogleFonts.poppins(),
                   validator: _validatePassword,
                 ),
                 SizedBox(height: 24),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: const Color(0xFF3B6AA0),
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -344,7 +354,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       )
                     : Text(
                         isLogin ? 'Masuk' : 'Daftar',
-                        style: TextStyle(
+                        style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
@@ -352,21 +362,29 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                 ),
                 SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => setState(() => isLogin = !isLogin),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text(
-                    isLogin
-                      ? 'Belum punya akun? Daftar'
-                      : 'Sudah punya akun? Masuk',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      isLogin ? 'Belum punya akun?' : 'Sudah punya akun?',
+                      style: GoogleFonts.poppins(color: Colors.grey[600]),
                     ),
-                  ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          isLogin = !isLogin;
+                          errorMessage = null; // Clear error when switching modes
+                        });
+                      },
+                      child: Text(
+                        isLogin ? 'Daftar' : 'Masuk',
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF3B6AA0),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 
                 // Add password reset option
@@ -379,7 +397,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     child: Text(
                       'Lupa password?',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),
@@ -405,28 +423,33 @@ class _AuthScreenState extends State<AuthScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Reset Password'),
+          title: Text('Reset Password', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!resetSent) ...[
-                Text('Masukkan email Anda untuk menerima link reset password'),
+                Text(
+                  'Masukkan email Anda untuk menerima link reset password',
+                  style: GoogleFonts.poppins(),
+                ),
                 SizedBox(height: 16),
                 TextField(
                   controller: resetEmailController,
                   decoration: InputDecoration(
                     labelText: 'Email',
+                    labelStyle: GoogleFonts.poppins(),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                  style: GoogleFonts.poppins(),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 if (resetError != null) ...[
                   SizedBox(height: 12),
                   Text(
                     resetError!,
-                    style: TextStyle(color: Colors.red),
+                    style: GoogleFonts.poppins(color: Colors.red),
                   ),
                 ],
               ] else ...[
@@ -438,6 +461,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 SizedBox(height: 16),
                 Text(
                   'Email reset password telah dikirim ke ${resetEmailController.text}',
+                  style: GoogleFonts.poppins(),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -447,9 +471,13 @@ class _AuthScreenState extends State<AuthScreen> {
             if (!resetSent) ...[
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: Text('Batal'),
+                child: Text('Batal', style: GoogleFonts.poppins()),
               ),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B6AA0),
+                  textStyle: GoogleFonts.poppins(),
+                ),
                 onPressed: isResetting ? null : () async {
                   if (resetEmailController.text.isEmpty) {
                     setDialogState(() {
@@ -495,12 +523,12 @@ class _AuthScreenState extends State<AuthScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text('Kirim'),
+                  : Text('Kirim', style: GoogleFonts.poppins()),
               ),
             ] else ...[
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: Text('Tutup'),
+                child: Text('Tutup', style: GoogleFonts.poppins()),
               ),
             ],
           ],
