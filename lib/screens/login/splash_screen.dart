@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../main.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -32,11 +34,38 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    Future.delayed(Duration(seconds: 4), () {
+    // Cek status autentikasi setelah animasi selesai
+    Future.delayed(Duration(seconds: 3), () {
+      _checkAuthAndNavigate();
+    });
+  }
+  
+  // Fungsi untuk memeriksa status autentikasi dan mengarahkan pengguna
+  Future<void> _checkAuthAndNavigate() async {
+    try {
+      // Memuat ulang data pengguna untuk memastikan status terbaru
+      await AuthService.reloadUser();
+      
+      final user = FirebaseAuth.instance.currentUser;
+      
+      if (mounted) {
+        if (user != null) {
+          print('User terautentikasi: ${user.email}');
+          // Jika sudah login, langsung ke homepage
+          context.go('/homepage');
+        } else {
+          print('Tidak ada user yang login');
+          // Jika belum login, ke welcome screen
+          context.go('/welcome');
+        }
+      }
+    } catch (e) {
+      print('Error saat memeriksa autentikasi: $e');
+      // Jika terjadi error, arahkan ke welcome screen
       if (mounted) {
         context.go('/welcome');
       }
-    });
+    }
   }
 
   @override

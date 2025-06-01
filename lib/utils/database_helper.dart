@@ -31,18 +31,10 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
     
-    // Delete existing database to recreate with new schema
-    // This is a temporary solution for development - in production, you'd use migrations
-    try {
-      await deleteDatabase(path);
-      print('Deleted existing database to recreate with new schema');
-    } catch (e) {
-      print('No existing database to delete: $e');
-    }
-
+    // Buka database yang ada atau buat baru jika belum ada
     return await openDatabase(
       path,
-      version: 2, // Increment version number
+      version: 3, // Increment version number untuk menambahkan kolom user_id
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -50,6 +42,43 @@ class DatabaseHelper {
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     print('Upgrading database from version $oldVersion to $newVersion');
+    
+    // Upgrade ke versi 3: Tambahkan kolom user_id ke tabel schedules, team_schedules, dan selected_optimal_schedules
+    if (oldVersion < 3) {
+      try {
+        // Periksa apakah kolom user_id sudah ada di tabel schedules
+        final tableInfo = await db.rawQuery("PRAGMA table_info(schedules)");
+        final hasUserId = tableInfo.any((column) => column['name'] == 'user_id');
+        
+        if (!hasUserId) {
+          // Tambahkan kolom user_id ke tabel schedules
+          await db.execute('ALTER TABLE schedules ADD COLUMN user_id TEXT');
+          print('Added user_id column to schedules table');
+        }
+        
+        // Periksa apakah kolom user_id sudah ada di tabel team_schedules
+        final teamTableInfo = await db.rawQuery("PRAGMA table_info(team_schedules)");
+        final hasTeamUserId = teamTableInfo.any((column) => column['name'] == 'user_id');
+        
+        if (!hasTeamUserId) {
+          // Tambahkan kolom user_id ke tabel team_schedules
+          await db.execute('ALTER TABLE team_schedules ADD COLUMN user_id TEXT');
+          print('Added user_id column to team_schedules table');
+        }
+        
+        // Periksa apakah kolom user_id sudah ada di tabel selected_optimal_schedules
+        final optimalTableInfo = await db.rawQuery("PRAGMA table_info(selected_optimal_schedules)");
+        final hasOptimalUserId = optimalTableInfo.any((column) => column['name'] == 'user_id');
+        
+        if (!hasOptimalUserId) {
+          // Tambahkan kolom user_id ke tabel selected_optimal_schedules
+          await db.execute('ALTER TABLE selected_optimal_schedules ADD COLUMN user_id TEXT');
+          print('Added user_id column to selected_optimal_schedules table');
+        }
+      } catch (e) {
+        print('Error adding user_id column: $e');
+      }
+    }
   
     if (oldVersion < 2) {
       // Add the new tables for version 2
@@ -154,7 +183,8 @@ class DatabaseHelper {
         endTime TEXT NOT NULL,
         ruangan TEXT NOT NULL,
         dosen TEXT NOT NULL,
-        hari TEXT NOT NULL
+        hari TEXT NOT NULL,
+        user_id TEXT
       )
     ''');
 
@@ -168,7 +198,8 @@ class DatabaseHelper {
         waktu TEXT,
         ruangan TEXT,
         dosen TEXT,
-        hari TEXT
+        hari TEXT,
+        user_id TEXT
       )
     ''');
 
@@ -188,7 +219,8 @@ class DatabaseHelper {
         day TEXT NOT NULL,
         time TEXT NOT NULL,
         location TEXT NOT NULL,
-        is_selected INTEGER DEFAULT 0
+        is_selected INTEGER DEFAULT 0,
+        user_id TEXT
       )
     ''');
     
@@ -203,7 +235,7 @@ class DatabaseHelper {
   }
 
   // Schedule methods
-  Future<int> insertSchedule(Schedule schedule) async {
+  Future<int> insertSchedule(Schedule schedule, {String? userId}) async {
     final db = await instance.database;
     return await db.insert('schedules', {
       'mataKuliah': schedule.mataKuliah,
@@ -213,12 +245,13 @@ class DatabaseHelper {
       'ruangan': schedule.ruangan,
       'dosen': schedule.dosen,
       'hari': schedule.hari,
+      'user_id': userId,
     });
   }
 
   // Tambahkan fungsi ini di class DatabaseHelper
   
-  Future<int> updateSchedule(int id, Schedule schedule) async {
+  Future<int> updateSchedule(int id, Schedule schedule, {String? userId}) async {
     final db = await instance.database;
     return await db.update(
       'schedules',
@@ -230,6 +263,7 @@ class DatabaseHelper {
         'ruangan': schedule.ruangan,
         'dosen': schedule.dosen,
         'hari': schedule.hari,
+        'user_id': userId,
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -245,25 +279,38 @@ class DatabaseHelper {
     );
   }
   
-  // Modifikasi getAllSchedules untuk menyertakan ID
-  Future<List<Schedule>> getAllSchedules() async {
+  // Modifikasi getAllSchedules untuk menyertakan ID dan filter berdasarkan user_id
+  Future<List<Schedule>> getAllSchedules({String? userId}) async {
     final db = await instance.database;
-    final result = await db.query('schedules');
-    return result.map((json) => Schedule(
-      id: json['id'] as int,
-      mataKuliah: json['mataKuliah'] as String,
-      waktu: json['waktu'] as String,
-      startTime: json['startTime'] as String? ?? '',
-      endTime: json['endTime'] as String? ?? '',
-      ruangan: json['ruangan'] as String,
-      dosen: json['dosen'] as String,
-      hari: json['hari'] as String,
+    final List<Map<String, dynamic>> schedules;
+    
+    if (userId != null) {
+      // Filter jadwal berdasarkan user_id
+      schedules = await db.query(
+        'schedules',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+    } else {
+      // Ambil semua jadwal jika userId tidak disediakan
+      schedules = await db.query('schedules');
+    }
+    
+    return schedules.map((map) => Schedule(
+      id: map['id'] as int,
+      mataKuliah: map['mataKuliah'] as String,
+      waktu: map['waktu'] as String,
+      startTime: map['startTime'] as String,
+      endTime: map['endTime'] as String,
+      ruangan: map['ruangan'] as String,
+      dosen: map['dosen'] as String,
+      hari: map['hari'] as String,
     )).toList();
   }
 
   // Team Schedule methods
   // This method is used for inserting team schedules without affecting the regular schedules table
-  Future<int> insertTeamScheduleOnly(TeamSchedule teamSchedule) async {
+  Future<int> insertTeamScheduleOnly(TeamSchedule teamSchedule, {String? userId}) async {
     final db = await instance.database;
   
     // Create a new entry in team_schedules table with all schedule data
@@ -276,6 +323,7 @@ class DatabaseHelper {
       'hari': teamSchedule.schedule.hari,
       'start_time': teamSchedule.startTime,
       'end_time': teamSchedule.endTime,
+      'user_id': userId,
     });
 
     // Insert all team members
@@ -291,14 +339,15 @@ class DatabaseHelper {
   }
   
   // Original method - kept for compatibility with existing code
-  Future<int> insertTeamSchedule(TeamSchedule teamSchedule) async {
+  Future<int> insertTeamSchedule(TeamSchedule teamSchedule, {String? userId}) async {
     final db = await instance.database;
-    final scheduleId = await insertSchedule(teamSchedule.schedule);
+    final scheduleId = await insertSchedule(teamSchedule.schedule, userId: userId);
     
     final teamScheduleId = await db.insert('team_schedules', {
       'schedule_id': scheduleId,
       'start_time': teamSchedule.startTime,
       'end_time': teamSchedule.endTime,
+      'user_id': userId,
     });
 
     for (var member in teamSchedule.members) {
@@ -313,7 +362,7 @@ class DatabaseHelper {
   }
 
   // This method updates team schedules without affecting the regular schedules table
-  Future<int> updateTeamScheduleOnly(TeamSchedule teamSchedule) async {
+  Future<int> updateTeamScheduleOnly(TeamSchedule teamSchedule, {String? userId}) async {
     final db = await instance.database;
   
     // Update the team schedule with all schedule data directly in team_schedules table
@@ -327,6 +376,7 @@ class DatabaseHelper {
         'ruangan': teamSchedule.schedule.ruangan,
         'dosen': teamSchedule.schedule.dosen,
         'hari': teamSchedule.schedule.hari,
+        'user_id': userId,
       },
       where: 'id = ?',
       whereArgs: [teamSchedule.id],
@@ -352,7 +402,7 @@ class DatabaseHelper {
   }
   
   // Original method - kept for compatibility with existing code
-  Future<int> updateTeamSchedule(TeamSchedule teamSchedule) async {
+  Future<int> updateTeamSchedule(TeamSchedule teamSchedule, {String? userId}) async {
     final db = await instance.database;
     
     // Update the schedule first
@@ -364,6 +414,7 @@ class DatabaseHelper {
         'ruangan': teamSchedule.schedule.ruangan,
         'dosen': teamSchedule.schedule.dosen,
         'hari': teamSchedule.schedule.hari,
+        'user_id': userId,
       },
       where: 'id = ?',
       whereArgs: [teamSchedule.schedule.id],
@@ -443,9 +494,22 @@ class DatabaseHelper {
     await db.delete('team_members');
   }
 
-  Future<List<TeamSchedule>> getAllTeamSchedules() async {
+  Future<List<TeamSchedule>> getAllTeamSchedules({String? userId}) async {
     final db = await instance.database;
-    final teamSchedules = await db.query('team_schedules');
+    final List<Map<String, dynamic>> teamSchedules;
+    
+    if (userId != null) {
+      // Filter jadwal tim berdasarkan user_id
+      teamSchedules = await db.query(
+        'team_schedules',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+    } else {
+      // Ambil semua jadwal tim jika userId tidak disediakan
+      teamSchedules = await db.query('team_schedules');
+    }
+    
     List<TeamSchedule> result = [];
 
     for (var teamSchedule in teamSchedules) {
@@ -490,11 +554,19 @@ class DatabaseHelper {
   }
   
   // Methods for optimal schedules
-  Future<int> saveOptimalSchedule(OptimalSchedule schedule, {bool isSelected = true}) async {
+  Future<int> saveOptimalSchedule(OptimalSchedule schedule, {bool isSelected = true, String? userId}) async {
     final db = await instance.database;
     
-    // If this is selected, unselect all others first
-    if (isSelected) {
+    // If this is selected, unselect all others first for this user
+    if (isSelected && userId != null) {
+      await db.update(
+        'selected_optimal_schedules',
+        {'is_selected': 0},
+        where: 'is_selected = 1 AND user_id = ?',
+        whereArgs: [userId]
+      );
+    } else if (isSelected) {
+      // Jika tidak ada user_id, unselect semua
       await db.update(
         'selected_optimal_schedules',
         {'is_selected': 0},
@@ -502,13 +574,20 @@ class DatabaseHelper {
       );
     }
     
-    // Insert the optimal schedule
-    final scheduleId = await db.insert('selected_optimal_schedules', {
+    // Insert the optimal schedule with user_id if provided
+    final scheduleData = {
       'day': schedule.day,
       'time': schedule.time,
       'location': schedule.location,
       'is_selected': isSelected ? 1 : 0,
-    });
+    };
+    
+    // Tambahkan user_id jika disediakan
+    if (userId != null) {
+      scheduleData['user_id'] = userId;
+    }
+    
+    final scheduleId = await db.insert('selected_optimal_schedules', scheduleData);
     
     // Insert all members
     for (var member in schedule.members) {
@@ -521,9 +600,27 @@ class DatabaseHelper {
     return scheduleId;
   }
   
-  Future<List<OptimalSchedule>> getAllOptimalSchedules() async {
+  Future<List<OptimalSchedule>> getAllOptimalSchedules({String? userId}) async {
     final db = await instance.database;
-    final schedules = await db.query('selected_optimal_schedules');
+    
+    // Tambahkan filter user_id jika disediakan
+    String? whereClause;
+    List<dynamic>? whereArgs;
+    
+    if (userId != null) {
+      whereClause = 'user_id = ?';
+      whereArgs = [userId];
+      print('Filtering optimal schedules for user_id: $userId');
+    }
+    
+    final schedules = await db.query(
+      'selected_optimal_schedules',
+      where: whereClause,
+      whereArgs: whereArgs
+    );
+    
+    print('Found ${schedules.length} optimal schedules for user_id: $userId');
+    
     List<OptimalSchedule> result = [];
     
     for (var schedule in schedules) {
@@ -551,11 +648,22 @@ class DatabaseHelper {
   }
   
   // Get the currently selected optimal schedule (if any)
-  Future<OptimalSchedule?> getSelectedOptimalSchedule() async {
+  Future<OptimalSchedule?> getSelectedOptimalSchedule({String? userId}) async {
     final db = await instance.database;
+    
+    // Tambahkan filter user_id jika disediakan
+    String whereClause = 'is_selected = 1';
+    List<dynamic> whereArgs = [];
+    
+    if (userId != null) {
+      whereClause += ' AND user_id = ?';
+      whereArgs.add(userId);
+    }
+    
     final schedules = await db.query(
       'selected_optimal_schedules',
-      where: 'is_selected = 1',
+      where: whereClause,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       limit: 1
     );
     
@@ -581,6 +689,48 @@ class DatabaseHelper {
       location: schedule['location'] as String,
       members: members,
       isSelected: true,
+    );
+  }
+  
+  // Delete the selected optimal schedule
+  Future<int> deleteSelectedOptimalSchedule({String? userId}) async {
+    final db = await instance.database;
+    
+    // Tambahkan filter user_id jika disediakan
+    String whereClause = 'is_selected = 1';
+    List<dynamic> whereArgs = [];
+    
+    if (userId != null) {
+      whereClause += ' AND user_id = ?';
+      whereArgs.add(userId);
+    }
+    
+    // Dapatkan ID jadwal yang akan dihapus
+    final schedules = await db.query(
+      'selected_optimal_schedules',
+      where: whereClause,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      limit: 1
+    );
+    
+    if (schedules.isEmpty) {
+      return 0; // Tidak ada jadwal yang dihapus
+    }
+    
+    final scheduleId = schedules.first['id'] as int;
+    
+    // Hapus anggota tim dari jadwal optimal
+    await db.delete(
+      'optimal_schedule_members',
+      where: 'optimal_schedule_id = ?',
+      whereArgs: [scheduleId],
+    );
+    
+    // Hapus jadwal optimal
+    return await db.delete(
+      'selected_optimal_schedules',
+      where: 'id = ?',
+      whereArgs: [scheduleId],
     );
   }
   

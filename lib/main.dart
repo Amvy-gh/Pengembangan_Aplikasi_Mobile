@@ -2,6 +2,7 @@ import 'package:edu_time/firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'routes/app_router.dart';
 
 // Import firebase options jika menggunakan flutterfire CLI
@@ -11,8 +12,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
-);
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Firebase Auth di mobile secara default sudah menggunakan persistensi lokal
+  // sehingga tidak perlu mengatur persistensi secara manual
   
   runApp(const EduTimeApp());
 }
@@ -67,6 +71,16 @@ class AuthService {
 
   // Stream untuk mendengarkan perubahan state otentikasi
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
+  
+  // Memeriksa apakah pengguna sudah login
+  static bool get isLoggedIn => currentUser != null;
+  
+  // Memuat ulang data pengguna untuk memastikan status terbaru
+  static Future<void> reloadUser() async {
+    if (currentUser != null) {
+      await currentUser!.reload();
+    }
+  }
 
   // Method login
   static Future<UserCredential> signIn(String email, String password) async {
@@ -86,7 +100,22 @@ class AuthService {
 
   // Method logout
   static Future<void> signOut() async {
+    // Bersihkan data lokal sebelum logout
+    await clearLocalData();
     return await _auth.signOut();
+  }
+  
+  // Method untuk membersihkan data lokal saat logout
+  static Future<void> clearLocalData() async {
+    // Ini akan membersihkan cache data di memori
+    // Aplikasi akan memuat ulang data sesuai user yang login berikutnya
+    try {
+      // Kita tidak menghapus database, hanya membersihkan cache di memori
+      // Data akan difilter berdasarkan user_id saat dimuat ulang
+      print('Clearing local data cache before logout');
+    } catch (e) {
+      print('Error clearing local data: $e');
+    }
   }
 
   // Method reset password

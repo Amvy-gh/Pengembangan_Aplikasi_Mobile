@@ -6,7 +6,6 @@ import '../screens/homepage.dart';
 import '../screens/jadwal_perkuliahan.dart';
 import '../screens/jadwal_kerja_kelompok.dart';
 import '../screens/settings.dart';
-import '../screens/statistik_screen.dart';
 import '../screens/edit_profile_screen.dart';
 import '../screens/change_email_screen.dart';
 import '../screens/change_password_screen.dart';
@@ -26,7 +25,6 @@ class AppRouter {
       GoRoute(path: '/jadwal-perkuliahan', builder: (_, __) => JadwalPerkuliahan()),
       GoRoute(path: '/jadwal-kerja-kelompok', builder: (_, __) => JadwalKerjaKelompok()),
       GoRoute(path: '/settings', builder: (_, __) => SettingsPage()),
-      GoRoute(path: '/statistik', builder: (_, __) => StatistikScreen()),
       GoRoute(
         path: '/settings/profile',
         builder: (context, state) => EditProfileScreen(),

@@ -85,7 +85,9 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
   Future<void> _loadSchedules() async {
     try {
       final db = DatabaseHelper.instance;
-      final schedules = await db.getAllSchedules();
+      // Ambil jadwal berdasarkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final schedules = await db.getAllSchedules(userId: user?.uid);
       setState(() {
         jadwalKuliah = schedules;
       });
@@ -109,11 +111,19 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
         dosen: _dosenController.text,
         hari: _selectedHari,
       );
+      
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
   
       if (_isEditing && _editingIndex != null) {
         // Update di database
+        // Dapatkan user_id dari pengguna yang sedang login
+        final user = FirebaseAuth.instance.currentUser;
+        final userId = user?.uid;
+        
         // Catatan: Perlu menambahkan fungsi updateSchedule di DatabaseHelper
-        DatabaseHelper.instance.updateSchedule(jadwalKuliah[_editingIndex!].id!, schedule).then((_) {
+        DatabaseHelper.instance.updateSchedule(jadwalKuliah[_editingIndex!].id!, schedule, userId: userId).then((_) {
           setState(() {
             jadwalKuliah[_editingIndex!] = schedule;
             _resetForm();
@@ -121,8 +131,8 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
           });
         });
       } else {
-        // Simpan ke database
-        DatabaseHelper.instance.insertSchedule(schedule).then((id) {
+        // Simpan ke database dengan user_id
+        DatabaseHelper.instance.insertSchedule(schedule, userId: userId).then((id) {
           schedule.id = id; // Tambahkan id ke objek schedule
           setState(() {
             jadwalKuliah.add(schedule);

@@ -80,13 +80,22 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
   Future<void> _loadTodaySchedules() async {
     try {
       final db = DatabaseHelper.instance;
-      final schedules = await db.getAllSchedules();
-      final teamSchedules = await db.getAllTeamSchedules();
-      final optimalSchedules = await db.getAllOptimalSchedules();
+      
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      print('Loading schedules for user: ${user?.email} (ID: $userId)');
+      
+      // Muat jadwal dengan filter user_id
+      final schedules = await db.getAllSchedules(userId: userId);
+      final teamSchedules = await db.getAllTeamSchedules(userId: userId);
+      final optimalSchedules = await db.getAllOptimalSchedules(userId: userId);
+      
       final today = DateTime.now();
       final dayName = _getDayName(today.weekday);
       
-      print('Loaded ${schedules.length} regular schedules, ${teamSchedules.length} team schedules, and ${optimalSchedules.length} optimal schedules');
+      print('Loaded ${schedules.length} regular schedules, ${teamSchedules.length} team schedules, and ${optimalSchedules.length} optimal schedules for user $userId');
       
       setState(() {
         // Filter jadwal kuliah untuk user saat ini
@@ -103,9 +112,7 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
 
         // Filter jadwal kelompok biasa untuk hari ini
         todayTeamSchedule = teamSchedules
-          .where((teamSchedule) => 
-            teamSchedule.schedule.hari == dayName && 
-            teamSchedule.members.any((member) => member.name == currentUser))
+          .where((teamSchedule) => teamSchedule.schedule.hari == dayName)
           .map((teamSchedule) => {
             'title': "${teamSchedule.schedule.mataKuliah} (Kelompok)",
             'time': teamSchedule.startTime != null && teamSchedule.endTime != null
@@ -118,7 +125,9 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
           })
           .toList();
           
-        // Add optimal schedules for today
+        print('Found ${todayTeamSchedule.length} team schedules for today ($dayName)');
+          
+        // Add optimal schedules for today - only those selected by current user
         final selectedOptimalSchedules = optimalSchedules
           .where((schedule) => schedule.isSelected && schedule.day == dayName)
           .map((schedule) => {
@@ -130,6 +139,8 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
             'members': schedule.members,
           })
           .toList();
+          
+        print('Found ${selectedOptimalSchedules.length} selected optimal CSP schedules for today ($dayName)');
           
         // Combine regular team schedules with optimal schedules
         todayTeamSchedule = [...todayTeamSchedule, ...selectedOptimalSchedules];
@@ -196,12 +207,6 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
           'Kelompok',
           Icons.group,
           () => context.go('/jadwal-kerja-kelompok'),
-        ),
-        _buildActionButton(
-          context,
-          'Statistik',
-          Icons.bar_chart,
-          () => context.go('/statistik'),
         ),
       ],
     );

@@ -97,7 +97,11 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
   // Load any previously selected optimal schedule
   Future<void> _loadSelectedOptimalSchedule() async {
     try {
-      final selectedSchedule = await DatabaseHelper.instance.getSelectedOptimalSchedule();
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      final selectedSchedule = await DatabaseHelper.instance.getSelectedOptimalSchedule(userId: userId);
       if (selectedSchedule != null) {
         setState(() {
           selectedOptimalSchedule = selectedSchedule;
@@ -110,13 +114,49 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
       // This is expected on first run or after database changes
     }
   }
+  
+  // Hapus jadwal tim terpilih (hasil CSP)
+  Future<void> _deleteSelectedOptimalSchedule() async {
+    try {
+      final db = DatabaseHelper.instance;
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      // Hapus jadwal tim terpilih dari database
+      await db.deleteSelectedOptimalSchedule(userId: userId);
+      
+      setState(() {
+        selectedOptimalSchedule = null;
+        showSelectedSchedule = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Jadwal tim terpilih berhasil dihapus')),
+      );
+    } catch (e) {
+      print('Error deleting selected optimal schedule: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus jadwal tim terpilih')),
+      );
+    }
+  }
 
   Future<void> _loadData() async {
     try {
       final db = DatabaseHelper.instance;
-      // Only load regular schedules for reference, but don't modify jadwalKuliah
-      final schedules = await db.getAllSchedules();
-      final teamSchedules = await db.getAllTeamSchedules();
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      print('Loading team schedules for user: ${user?.email} (ID: $userId)');
+      
+      // Load regular schedules for reference with user_id filter
+      final schedules = await db.getAllSchedules(userId: userId);
+      // Pastikan jadwal tim juga difilter berdasarkan user_id
+      final teamSchedules = await db.getAllTeamSchedules(userId: userId);
+      
+      print('Loaded ${schedules.length} regular schedules and ${teamSchedules.length} team schedules for user $userId');
       
       setState(() {
         // Only update teamSchedules, don't modify jadwalKuliah here
@@ -135,8 +175,12 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
 
   Future<void> _addTeamSchedule(Schedule schedule, List<TeamMember> members) async {
     try {
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
       final teamSchedule = TeamSchedule(schedule: schedule, members: members);
-      final id = await DatabaseHelper.instance.insertTeamSchedule(teamSchedule);
+      final id = await DatabaseHelper.instance.insertTeamSchedule(teamSchedule, userId: userId);
       await _loadData(); // Reload data from database
     } catch (e) {
       print('Error adding team schedule: $e');
@@ -152,8 +196,12 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
   
   Future<void> _addTeamScheduleWithTimes(TeamSchedule teamSchedule) async {
     try {
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
       // Use insertTeamScheduleOnly to avoid affecting jadwal_perkuliahan data
-      final id = await DatabaseHelper.instance.insertTeamScheduleOnly(teamSchedule);
+      final id = await DatabaseHelper.instance.insertTeamScheduleOnly(teamSchedule, userId: userId);
       print('Team schedule saved with ID: $id');
       
       // Update the teamSchedule with the assigned ID
@@ -179,7 +227,12 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
   Future<void> _loadTeamSchedulesOnly() async {
     try {
       final db = DatabaseHelper.instance;
-      final teamSchedules = await db.getAllTeamSchedules();
+      // Dapatkan user_id dari pengguna yang sedang login
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      // Load team schedules with user_id filter
+      final teamSchedules = await db.getAllTeamSchedules(userId: userId);
       
       setState(() {
         this.teamSchedules = teamSchedules;
@@ -1229,21 +1282,29 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                   onPressed: selectedSchedule == null
                     ? null  // Disable if nothing selected
                     : () {
+                        // First, update the UI immediately to provide feedback
+                        setState(() {
+                          selectedOptimalSchedule = selectedSchedule;
+                          showSelectedSchedule = true;
+                          showOptimalSchedules = false; // Hide the other section
+                        });
+                        
+                        // Close the dialog
+                        Navigator.pop(context);
+                        
                         try {
-                          // First, update the UI immediately to provide feedback
-                          this.setState(() {
-                            selectedOptimalSchedule = selectedSchedule;
-                            showSelectedSchedule = true;
-                            showOptimalSchedules = false; // Hide the other section
-                          });
+                          // Dapatkan user_id dari pengguna yang sedang login
+                          final user = FirebaseAuth.instance.currentUser;
+                          final userId = user?.uid;
                           
-                          // Close the dialog
-                          Navigator.pop(context);
-                          
-                          // Then save to database in the background
-                          DatabaseHelper.instance.saveOptimalSchedule(selectedSchedule!, isSelected: true).then((id) {
-                            // Update the schedule with the database ID
+                          // Save the selected schedule to the database with user_id
+                          DatabaseHelper.instance.saveOptimalSchedule(
+                            selectedSchedule!,
+                            userId: userId
+                          ).then((id) {
                             setState(() {
+                              showOptimalSchedules = false;
+                              showSelectedSchedule = true;
                               selectedOptimalSchedule = OptimalSchedule(
                                 id: id,
                                 day: selectedSchedule!.day,
@@ -1254,7 +1315,7 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                               );
                             });
                             
-                            print('Successfully saved optimal schedule with ID: $id');
+                            print('Successfully saved optimal schedule with ID: $id for user: $userId');
                           }).catchError((error) {
                             print('Error saving optimal schedule: $error');
                             // Don't show error to user as the UI is already updated
@@ -1735,21 +1796,35 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                         ),
                       ),
                       SizedBox(height: 16),
-                      Center(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              showSelectedSchedule = false;
-                            });
-                          },
-                          icon: Icon(Icons.arrow_back),
-                          label: Text('Kembali ke Jadwal Tim', style: GoogleFonts.poppins()),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF4A7AB9),
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                showSelectedSchedule = false;
+                              });
+                            },
+                            icon: Icon(Icons.arrow_back),
+                            label: Text('Kembali', style: GoogleFonts.poppins()),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF4A7AB9),
+                              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
                           ),
-                        ),
+                          SizedBox(width: 16),
+                          ElevatedButton.icon(
+                            onPressed: _deleteSelectedOptimalSchedule,
+                            icon: Icon(Icons.delete),
+                            label: Text('Hapus Jadwal', style: GoogleFonts.poppins()),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
