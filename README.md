@@ -110,16 +110,6 @@ flutter run
 
 ---
 
-## 🗺️ Roadmap Pengembangan
-
-- [ ] Integrasi kalender akademik universitas  
-- [ ] Fitur berbagi jadwal dengan teman  
-- [ ] Notifikasi pengingat berbasis lokasi  
-- [ ] Sinkronisasi dengan Google Calendar  
-- [ ] Rekomendasi waktu belajar optimal  
-
----
-
 ## 🤝 Kontribusi
 
 Kami terbuka untuk kontribusi!  
