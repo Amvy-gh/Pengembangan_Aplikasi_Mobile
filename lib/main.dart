@@ -26,8 +26,8 @@ class EduTimeApp extends StatelessWidget {
       title: 'EduTime',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.green,
-        primaryColor: Colors.green,
+        primarySwatch: Colors.blue,
+        primaryColor: Color(0xFF4A7AB9),
         fontFamily: 'Roboto',
         useMaterial3: true,
         cardTheme: CardThemeData(
@@ -46,9 +46,9 @@ class EduTimeApp extends StatelessWidget {
             ),
           ),
         ),
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
           backgroundColor: Colors.white,
-          foregroundColor: Colors.green,
+          foregroundColor: Color(0xFF4A7AB9),
           elevation: 0,
           centerTitle: true,
         ),

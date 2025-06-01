@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../utils/database_helper.dart'; // Update this import path to match your project structure
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -18,6 +19,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
+  final _nimController = TextEditingController(); // Tambahan untuk NIM
+  final _prodiController = TextEditingController(); // Tambahan untuk Prodi
   
   // Firebase instance
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -42,7 +45,12 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
-  // Perbaikan error handling di metode _submitForm()
+  String? _validateNotEmpty(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return '$fieldName tidak boleh kosong';
+    }
+    return null;
+  }
 
   Future<void> _submitForm() async {
     // Clear any previous error messages
@@ -56,10 +64,15 @@ class _AuthScreenState extends State<AuthScreen> {
       try {
         if (isLogin) {
           // Handle Login
-          await _auth.signInWithEmailAndPassword(
+          UserCredential userCredential = await _auth.signInWithEmailAndPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
           );
+          
+          // Navigate to homepage if auth is successful
+          if (mounted) {
+            context.go('/homepage');
+          }
         } else {
           // Handle Registration
           UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
@@ -69,11 +82,22 @@ class _AuthScreenState extends State<AuthScreen> {
           
           // Update display name
           await userCredential.user!.updateDisplayName(_nameController.text.trim());
-        }
-        
-        // Navigate to homepage if auth is successful
-        if (mounted) {
-          context.go('/homepage');
+          
+          // Save user profile to SQLite
+          final newProfile = UserProfile(
+            uid: userCredential.user!.uid,
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            nim: _nimController.text.trim(),
+            prodi: _prodiController.text.trim(),
+          );
+          
+          await DatabaseHelper.instance.saveUserProfile(newProfile);
+          
+          // Navigate to homepage if auth is successful
+          if (mounted) {
+            context.go('/homepage');
+          }
         }
       } on FirebaseAuthException catch (e) {
         // Handle Firebase Auth specific errors
@@ -214,8 +238,42 @@ class _AuthScreenState extends State<AuthScreen> {
                         vertical: 16,
                       ),
                     ),
-                    validator: (value) => 
-                      value?.isEmpty ?? true ? 'Nama tidak boleh kosong' : null,
+                    validator: (value) => _validateNotEmpty(value, 'Nama'),
+                  ),
+                  SizedBox(height: 16),
+                  // Tambahan field NIM
+                  TextFormField(
+                    controller: _nimController,
+                    decoration: InputDecoration(
+                      labelText: 'NIM',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                    validator: (value) => _validateNotEmpty(value, 'NIM'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  SizedBox(height: 16),
+                  // Tambahan field Prodi
+                  TextFormField(
+                    controller: _prodiController,
+                    decoration: InputDecoration(
+                      labelText: 'Program Studi',
+                      prefixIcon: Icon(Icons.school_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                    validator: (value) => _validateNotEmpty(value, 'Program Studi'),
                   ),
                   SizedBox(height: 16),
                 ],
@@ -457,6 +515,8 @@ class _AuthScreenState extends State<AuthScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
+    _nimController.dispose();
+    _prodiController.dispose();
     super.dispose();
   }
 }
