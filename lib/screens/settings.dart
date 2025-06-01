@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/main_scaffold.dart';
+import '../utils/database_helper.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,6 +14,64 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   String _selectedLanguage = 'Indonesia';
   String _selectedTheme = 'Terang';
+  
+  // Data pengguna
+  String _userName = '';
+  String _userEmail = '';
+  String _userNim = '';
+  String _userProdi = '';
+  bool _isLoading = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+  
+  // Fungsi untuk memuat data profil pengguna dari database
+  Future<void> _loadUserProfile() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      
+      if (currentUser != null) {
+        // Set email dari Firebase Auth
+        _userEmail = currentUser.email ?? '';
+        
+        // Load data dari SQLite
+        final userProfile = await DatabaseHelper.instance.getUserProfile(currentUser.uid);
+        
+        setState(() {
+          if (userProfile != null) {
+            _userName = userProfile.name;
+            _userNim = userProfile.nim;
+            _userProdi = userProfile.prodi;
+          } else {
+            // Jika tidak ada data di SQLite, gunakan data dari Firebase Auth
+            _userName = currentUser.displayName ?? 'Pengguna';
+            _userNim = '-';
+            _userProdi = '-';
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading user profile: $e');
+      // Set nilai default jika gagal memuat data
+      setState(() {
+        _userName = 'Pengguna';
+        _userEmail = 'email@example.com';
+        _userNim = '-';
+        _userProdi = '-';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   void _showLanguageBottomSheet() {
     showModalBottomSheet(
@@ -151,136 +211,140 @@ class _SettingsPageState extends State<SettingsPage> {
     return MainScaffold(
       currentIndex: 3,
       title: 'Pengaturan',
-      body: ListView(
-        padding: EdgeInsets.only(bottom: 32),
-        children: [
-          _buildProfileHeader(),
-          SizedBox(height: 24),
-          _buildSection(
-            'Profil',
-            [
-              _buildSettingTile(
-                context,
-                icon: Icons.person_outline,
-                title: 'Edit Profil',
-                subtitle: 'Ubah nama, foto, dan informasi lainnya',
-                onTap: () => context.push('/settings/profile'),
-              ),
-              _buildSettingTile(
-                context,
-                icon: Icons.email_outlined,
-                title: 'Ganti Email',
-                subtitle: 'Ubah alamat email yang terdaftar',
-                onTap: () => context.push('/settings/email'),
-              ),
-              _buildSettingTile(
-                context,
-                icon: Icons.lock_outline,
-                title: 'Ganti Password',
-                subtitle: 'Ubah password akun anda',
-                onTap: () => context.push('/settings/password'),
-              ),
-            ],
-          ),
-          _buildSection(
-            'Aplikasi',
-            [
-              _buildSettingTile(
-                context,
-                icon: Icons.notifications_outlined,
-                title: 'Notifikasi',
-                subtitle: 'Atur pengingat jadwal',
-                onTap: () => context.push('/settings/notifications'),
-              ),
-              _buildSettingTile(
-                context,
-                icon: Icons.language_outlined,
-                title: 'Bahasa',
-                subtitle: 'Pilih bahasa aplikasi',
-                trailing: Text(_selectedLanguage),
-                onTap: _showLanguageBottomSheet,
-              ),
-              _buildSettingTile(
-                context,
-                icon: Icons.palette_outlined,
-                title: 'Tema',
-                subtitle: 'Ubah tampilan aplikasi',
-                trailing: Text(_selectedTheme),
-                onTap: _showThemeBottomSheet,
-              ),
-            ],
-          ),
-          _buildSection(
-            'Lainnya',
-            [
-              _buildSettingTile(
-                context,
-                icon: Icons.help_outline,
-                title: 'Bantuan',
-                subtitle: 'Pusat bantuan dan FAQ',
-                onTap: () => context.push('/settings/help'),
-              ),
-              _buildSettingTile(
-                context,
-                icon: Icons.info_outline,
-                title: 'Tentang',
-                subtitle: 'Informasi aplikasi',
-                onTap: () => context.push('/settings/about'),
-              ),
-            ],
-          ),
-          Padding(
-            padding: EdgeInsets.all(24),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text('Keluar'),
-                    content: Text('Apakah Anda yakin ingin keluar?'),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: EdgeInsets.only(bottom: 32),
+              children: [
+                _buildProfileHeader(),
+                SizedBox(height: 24),
+                _buildSection(
+                  'Profil',
+                  [
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.person_outline,
+                      title: 'Edit Profil',
+                      subtitle: 'Ubah nama, foto, dan informasi lainnya',
+                      onTap: () => context.push('/settings/profile'),
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text('Batal'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          context.go('/auth');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.email_outlined,
+                      title: 'Ganti Email',
+                      subtitle: 'Ubah alamat email yang terdaftar',
+                      onTap: () => context.push('/settings/email'),
+                    ),
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.lock_outline,
+                      title: 'Ganti Password',
+                      subtitle: 'Ubah password akun anda',
+                      onTap: () => context.push('/settings/password'),
+                    ),
+                  ],
+                ),
+                _buildSection(
+                  'Aplikasi',
+                  [
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.notifications_outlined,
+                      title: 'Notifikasi',
+                      subtitle: 'Atur pengingat jadwal',
+                      onTap: () => context.push('/settings/notifications'),
+                    ),
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.language_outlined,
+                      title: 'Bahasa',
+                      subtitle: 'Pilih bahasa aplikasi',
+                      trailing: Text(_selectedLanguage),
+                      onTap: _showLanguageBottomSheet,
+                    ),
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.palette_outlined,
+                      title: 'Tema',
+                      subtitle: 'Ubah tampilan aplikasi',
+                      trailing: Text(_selectedTheme),
+                      onTap: _showThemeBottomSheet,
+                    ),
+                  ],
+                ),
+                _buildSection(
+                  'Lainnya',
+                  [
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.help_outline,
+                      title: 'Bantuan',
+                      subtitle: 'Pusat bantuan dan FAQ',
+                      onTap: () => context.push('/settings/help'),
+                    ),
+                    _buildSettingTile(
+                      context,
+                      icon: Icons.info_outline,
+                      title: 'Tentang',
+                      subtitle: 'Informasi aplikasi',
+                      onTap: () => context.push('/settings/about'),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: EdgeInsets.all(24),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Keluar'),
+                          content: Text('Apakah Anda yakin ingin keluar?'),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text('Batal'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                // Sign out dari Firebase
+                                await FirebaseAuth.instance.signOut();
+                                context.go('/auth');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text('Keluar'),
+                            ),
+                          ],
                         ),
-                        child: Text('Keluar'),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      minimumSize: Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ],
+                    ),
+                    icon: Icon(Icons.logout),
+                    label: Text(
+                      'Keluar',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
                 ),
-              ),
-              icon: Icon(Icons.logout),
-              label: Text(
-                'Keluar',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -303,6 +367,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     );
   }
+  
   Widget _buildSettingTile(
     BuildContext context, {
     required IconData icon,
@@ -418,7 +483,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: 16),
           Text(
-            'John Doe',
+            _userName,
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -426,20 +491,61 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           SizedBox(height: 4),
-          Text(
-            'Teknik Informatika',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.school_outlined,
+                color: Colors.white.withOpacity(0.8),
+                size: 14,
+              ),
+              SizedBox(width: 4),
+              Text(
+                _userProdi,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
           SizedBox(height: 4),
-          Text(
-            'john.doe@example.com',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.badge_outlined,
+                color: Colors.white.withOpacity(0.8),
+                size: 14,
+              ),
+              SizedBox(width: 4),
+              Text(
+                'NIM: $_userNim',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.email_outlined,
+                color: Colors.white.withOpacity(0.8),
+                size: 14,
+              ),
+              SizedBox(width: 4),
+              Text(
+                _userEmail,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
         ],
       ),
