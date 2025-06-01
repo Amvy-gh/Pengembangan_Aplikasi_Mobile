@@ -3,6 +3,7 @@ import '../widgets/main_scaffold.dart';
 import 'jadwal_perkuliahan.dart';
 import '../utils/database_helper.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class TeamMember {
   String name;
@@ -66,7 +67,11 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
   final _formKey = GlobalKey<FormState>();
   final _memberNameController = TextEditingController();
   final _memberRoleController = TextEditingController();
-  final String currentUser = "Alfonsus Pangaribuan"; // Nama pengguna saat ini
+  // Use Firebase Auth to get the current user's display name or email
+  String get currentUser {
+    final user = FirebaseAuth.instance.currentUser;
+    return user?.displayName ?? user?.email?.split('@')[0] ?? "User";
+  }
   
   // Get greeting based on time of day
   String get greeting {
@@ -846,35 +851,117 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
     );
     
     try {
-      // Simulate CSP processing delay
-      await Future.delayed(Duration(seconds: 2));
+      // Define domain for days and time slots
+      final List<String> days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
+      final List<List<String>> timeSlots = [
+        ["07:30", "09:00"], 
+        ["09:30", "12:00"], 
+        ["13:00", "15:30"], 
+        ["15:30", "17:10"]
+      ];
       
       final db = DatabaseHelper.instance;
-      final schedules = await db.getAllSchedules();
+      final regularSchedules = await db.getAllSchedules();
       final teamSchedules = await db.getAllTeamSchedules();
       
-      // Generate multiple possible solutions (simulating CSP results)
+      // Create a map of member schedules for CSP processing
+      Map<String, List<List<dynamic>>> memberSchedules = {};
+      
+      // Add regular schedules to member constraints
+      for (var schedule in regularSchedules) {
+        String memberName = schedule.dosen; // Using professor name as member for regular schedules
+        
+        if (!memberSchedules.containsKey(memberName)) {
+          memberSchedules[memberName] = [];
+        }
+        
+        memberSchedules[memberName]!.add([
+          schedule.hari,
+          "${schedule.startTime}-${schedule.endTime}",
+          schedule.ruangan
+        ]);
+      }
+      
+      // Add team schedules to member constraints
+      for (var teamSchedule in teamSchedules) {
+        for (var member in teamSchedule.members) {
+          String memberName = member.name;
+          
+          if (!memberSchedules.containsKey(memberName)) {
+            memberSchedules[memberName] = [];
+          }
+          
+          memberSchedules[memberName]!.add([
+            teamSchedule.schedule.hari,
+            "${teamSchedule.schedule.startTime}-${teamSchedule.schedule.endTime}",
+            teamSchedule.schedule.ruangan
+          ]);
+        }
+      }
+      
+      // Get all team members
+      Set<String> allMembers = {};
+      for (var teamSchedule in teamSchedules) {
+        for (var member in teamSchedule.members) {
+          allMembers.add(member.name);
+        }
+      }
+      
+      // If no team members found, use a default set
+      if (allMembers.isEmpty) {
+        allMembers = {'Anggota 1', 'Anggota 2', 'Anggota 3'};
+      }
+      
+      // Generate all possible day-time slot combinations using forward checking
+      List<List<dynamic>> combinations = _forwardChecking(days, timeSlots);
+      
+      // Find optimal meeting times using CSP
+      Map<String, Map<String, dynamic>> freeTimesMap = _findGroupMeetingTimes(memberSchedules, combinations);
+      
+      // Convert results to a list of OptimalSchedule objects
       List<OptimalSchedule> possibleSchedules = [];
       
-      // Create some sample optimal schedules (in a real app, this would be the CSP algorithm result)
-      for (var day in ['Senin', 'Selasa', 'Rabu']) {
-        for (var timeSlot in ['08:00 - 10:00', '13:00 - 15:00']) {
-          possibleSchedules.add(OptimalSchedule(
-            day: day,
-            time: timeSlot,
-            location: 'Ruang ${100 + possibleSchedules.length}',
-            members: teamSchedules.isNotEmpty 
-              ? teamSchedules[0].members.map((member) => member.name).toList()
-              : ['Anggota 1', 'Anggota 2'],
-          ));
-        }
+      // Sort by number of available members (descending)
+      var sortedFreeTimes = freeTimesMap.entries.toList()
+        ..sort((a, b) => b.value['count'].compareTo(a.value['count']));
+      
+      for (var entry in sortedFreeTimes) {
+        var key = entry.key.split('|');
+        var day = key[0];
+        var time = key[1];
+        var value = entry.value;
+        
+        possibleSchedules.add(OptimalSchedule(
+          day: day,
+          time: time,
+          location: value['optimal_location'] ?? 'Lokasi belum ditentukan',
+          members: List<String>.from(value['members']),
+        ));
       }
       
       // Close the processing dialog
       Navigator.of(context).pop();
       
-      // Show results selection dialog
-      _showOptimalScheduleSelectionDialog(possibleSchedules);
+      if (possibleSchedules.isEmpty) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Tidak Ada Jadwal Optimal'),
+              content: Text('Tidak ditemukan jadwal yang cocok untuk semua anggota tim. Coba tambahkan lebih banyak slot waktu atau ubah jadwal anggota.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      } else {
+        // Show results selection dialog
+        _showOptimalScheduleSelectionDialog(possibleSchedules);
+      }
       
     } catch (e) {
       // Close the processing dialog
@@ -899,7 +986,127 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
       );
     }
   }
+
+  // Helper method for CSP algorithm: Forward checking to generate all possible combinations
+  List<List<dynamic>> _forwardChecking(List<String> days, List<List<String>> timeSlots, 
+      {int currentDayIdx = 0, List<List<dynamic>>? currentCombination, List<List<dynamic>>? results}) {
+    
+    results ??= [];
+    currentCombination ??= [];
+    
+    // If we've processed all days, add the current combination to results
+    if (currentDayIdx == days.length) {
+      results.add(List<List<dynamic>>.from(currentCombination));
+      return results;
+    }
+    
+    // Try each time slot for the current day
+    for (var slot in timeSlots) {
+      var newCombination = List<List<dynamic>>.from(currentCombination);
+      newCombination.add([days[currentDayIdx], slot]);
+      
+      _forwardChecking(
+        days, 
+        timeSlots,
+        currentDayIdx: currentDayIdx + 1,
+        currentCombination: newCombination,
+        results: results
+      );
+    }
+    
+    return results;
+  }
   
+  // Helper method: Convert time from HH:MM format to minutes since midnight
+  int _timeToMinutes(String time) {
+    final parts = time.split(':');
+    final hours = int.parse(parts[0]);
+    final minutes = int.parse(parts[1]);
+    return hours * 60 + minutes;
+  }
+  
+  // Helper method for CSP algorithm: Find optimal meeting times based on member schedules
+  Map<String, Map<String, dynamic>> _findGroupMeetingTimes(
+      Map<String, List<List<dynamic>>> schedules, List<List<dynamic>> combinations) {
+    
+    Map<String, Map<String, dynamic>> freeTimes = {};
+    
+    for (var combination in combinations) {
+      for (var item in combination) {
+        final day = item[0] as String;
+        final timeSlot = item[1] as List<String>;
+        final startSlot = timeSlot[0];
+        final endSlot = timeSlot[1];
+        
+        final startMinutes = _timeToMinutes(startSlot);
+        final endMinutes = _timeToMinutes(endSlot);
+        
+        Map<String, int> locationAvailability = {};
+        List<String> membersAvailable = [];
+        
+        // Check each member if they are available
+        for (var entry in schedules.entries) {
+          final member = entry.key;
+          final memberSchedule = entry.value;
+          
+          bool isAvailable = true;
+          String? lastLocation;
+          
+          for (var schedule in memberSchedule) {
+            final scheduleDay = schedule[0] as String;
+            final scheduleTime = schedule[1] as String;
+            final scheduleLocation = schedule[2] as String;
+            
+            if (day == scheduleDay) {
+              final timeParts = scheduleTime.split('-');
+              if (timeParts.length == 2) {
+                final scheduleStart = _timeToMinutes(timeParts[0].trim());
+                final scheduleEnd = _timeToMinutes(timeParts[1].trim());
+                
+                // Check if there's a conflict
+                if (!(scheduleEnd <= startMinutes || scheduleStart >= endMinutes)) {
+                  isAvailable = false;
+                  break;
+                }
+              }
+              
+              lastLocation = scheduleLocation;
+            }
+          }
+          
+          if (isAvailable) {
+            membersAvailable.add(member);
+            if (lastLocation != null && lastLocation.isNotEmpty) {
+              locationAvailability[lastLocation] = (locationAvailability[lastLocation] ?? 0) + 1;
+            }
+          }
+        }
+        
+        // Find optimal location based on frequency
+        String? optimalLocation;
+        int maxCount = 0;
+        
+        locationAvailability.forEach((location, count) {
+          if (count > maxCount) {
+            maxCount = count;
+            optimalLocation = location;
+          }
+        });
+        
+        if (membersAvailable.isNotEmpty) {
+          final key = '$day|$startSlot-$endSlot';
+          freeTimes[key] = {
+            'count': membersAvailable.length,
+            'members': membersAvailable,
+            'optimal_location': optimalLocation,
+          };
+        }
+      }
+    }
+    
+    return freeTimes;
+  }
+
   void _showOptimalScheduleSelectionDialog(List<OptimalSchedule> possibleSchedules) {
     OptimalSchedule? selectedSchedule;
     
@@ -1022,12 +1229,15 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
   Widget build(BuildContext context) {
     return MainScaffold(
       currentIndex: 2,
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header with user greeting - made responsive
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -1061,7 +1271,7 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                             ),
                           ),
                           Text(
-                            'Alfonsus Pangaribuan!',
+                            '$currentUser!',
                             style: GoogleFonts.poppins(
                               fontSize: constraints.maxWidth < 300 ? 14 : 16,
                               fontWeight: FontWeight.bold,
@@ -1508,6 +1718,7 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
           ),
         ),
       ),
+    ),
     );
   }
 }

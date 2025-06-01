@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../widgets/main_scaffold.dart';
 import '../utils/database_helper.dart';
 import 'jadwal_perkuliahan.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -17,7 +18,11 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
   List<Map<String, dynamic>> todaySchedule = [];
   List<Map<String, dynamic>> todayTeamSchedule = [];
-  final String currentUser = "Alfonso Pangaribuan"; // Ganti dengan sistem autentikasi yang sebenarnya
+  // Use Firebase Auth to get the current user's display name or email
+  String get currentUser {
+    final user = FirebaseAuth.instance.currentUser;
+    return user?.displayName ?? user?.email?.split('@')[0] ?? "User";
+  }
   late DateTime _currentDate;
   late String _greeting;
   late Timer _timer;
@@ -290,236 +295,155 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
     
     return MainScaffold(
       currentIndex: 0,
-      body: Container(
-        color: Colors.white,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header with profile and greeting
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Profile image/logo
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Image.asset(
-                            'assets/images/logo.png',
-                            width: 40,
-                            height: 40,
-                          ),
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with profile and greeting
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Profile image/logo
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 40,
+                          height: 40,
                         ),
                       ),
-                      
-                      // Greeting and name
+                    ),
+                    
+                    // Greeting and name
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _greeting,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                        Text(
+                          currentUser + '!',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                
+                SizedBox(height: 24),
+                
+                // Blue date section
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF4A7AB9),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _greeting,
+                            dayName + ',',
                             style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.grey.shade400,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
                             ),
                           ),
+                          SizedBox(height: 4),
                           Text(
-                            currentUser + '!',
+                            formattedDate,
                             style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade900,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Color(0xFFFFD95A),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              scheduleCount > 0 
+                                ? 'Hari ini ada $scheduleCount kelas perkuliahan'
+                                : 'Hari ini tidak ada kelas perkuliahan',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  
-                  SizedBox(height: 24),
-                  
-                  // Blue date section
-                  Container(
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Color(0xFF4A7AB9),
-                      borderRadius: BorderRadius.circular(16),
+                ),
+                
+                SizedBox(height: 24),
+                
+                // Today's Schedule Section
+                Row(
+                  children: [
+                    Text(
+                      'Jadwal Hari Ini',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade900,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              dayName + ',',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              formattedDate,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: 12),
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Color(0xFFFFD95A),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                scheduleCount > 0 
-                                  ? 'Hari ini ada $scheduleCount kelas perkuliahan'
-                                  : 'Hari ini tidak ada kelas perkuliahan',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    SizedBox(width: 8),
+                    Text(
+                      formattedDate,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                      ),
                     ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                
+                // Schedule content or empty state
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  
-                  SizedBox(height: 24),
-                  
-                  // Today's Schedule Section
-                  Row(
-                    children: [
-                      Text(
-                        'Jadwal Hari Ini',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        formattedDate,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  
-                  // Schedule content or empty state
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: todaySchedule.isEmpty
-                      ? Column(
-                          children: [
-                            Text(
-                              'Belum Ada Jadwal !',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade900,
-                              ),
-                            ),
-                            SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: () => context.go('/jadwal-perkuliahan'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF4A7AB9),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                              ),
-                              child: Text(
-                                'TAMBAHKAN JADWAL',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            ...todaySchedule.map((schedule) =>
-                              _buildScheduleCard(
-                                context,
-                                schedule['title'],
-                                schedule['time'],
-                                schedule['location'],
-                                schedule['icon'],
-                                schedule['color'],
-                              ),
-                            ),
-                          ],
-                        ),
-                  ),
-                  
-                  SizedBox(height: 24),
-                  
-                  // Team Schedule Section
-                  Row(
-                    children: [
-                      Text(
-                        'Jadwal Kerkom Hari Ini',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        formattedDate,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  
-                  // Team schedule content or empty state
-                  if (todayTeamSchedule.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
+                  child: todaySchedule.isEmpty
+                    ? Column(
                         children: [
                           Text(
-                            'Belum Ada Jadwal Kerja Kelompok!',
+                            'Belum Ada Jadwal !',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -528,7 +452,7 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
                           ),
                           SizedBox(height: 24),
                           ElevatedButton(
-                            onPressed: () => context.go('/jadwal-kerja-kelompok'),
+                            onPressed: () => context.go('/jadwal-perkuliahan'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Color(0xFF4A7AB9),
                               foregroundColor: Colors.white,
@@ -538,7 +462,7 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
                               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                             ),
                             child: Text(
-                              'TAMBAHKAN JADWAL KELOMPOK',
+                              'TAMBAHKAN JADWAL',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -546,24 +470,104 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
                             ),
                           ),
                         ],
+                      )
+                    : Column(
+                        children: [
+                          ...todaySchedule.map((schedule) =>
+                            _buildScheduleCard(
+                              context,
+                              schedule['title'],
+                              schedule['time'],
+                              schedule['location'],
+                              schedule['icon'],
+                              schedule['color'],
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  else
-                    Column(
+                ),
+                
+                SizedBox(height: 24),
+                
+                // Team Schedule Section
+                Row(
+                  children: [
+                    Text(
+                      'Jadwal Kerkom Hari Ini',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade900,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      formattedDate,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                
+                // Team schedule content or empty state
+                if (todayTeamSchedule.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
                       children: [
-                        ...todayTeamSchedule.map((schedule) =>
-                          _buildTeamScheduleCard(
-                            context,
-                            schedule['title'],
-                            schedule['time'],
-                            schedule['location'],
-                            schedule['members'],
+                        Text(
+                          'Belum Ada Jadwal Kerja Kelompok!',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade900,
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: () => context.go('/jadwal-kerja-kelompok'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF4A7AB9),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                          ),
+                          child: Text(
+                            'TAMBAHKAN JADWAL KELOMPOK',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                ],
-              ),
+                  )
+                else
+                  Column(
+                    children: [
+                      ...todayTeamSchedule.map((schedule) =>
+                        _buildTeamScheduleCard(
+                          context,
+                          schedule['title'],
+                          schedule['time'],
+                          schedule['location'],
+                          schedule['members'],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
         ),
@@ -574,7 +578,7 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
   Widget _buildTeamScheduleCard(BuildContext context, String title, String time,
       String location, List<String> members) {
     return Container(
-      margin: EdgeInsets.only(bottom: 4),
+      margin: EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,

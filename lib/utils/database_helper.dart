@@ -49,19 +49,58 @@ class DatabaseHelper {
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     print('Upgrading database from version $oldVersion to $newVersion');
-    
+  
     if (oldVersion < 2) {
       // Add the new tables for version 2
       try {
-        // Check if team_schedules table has start_time and end_time columns
+        // Check if team_schedules table has the necessary columns
         final tableInfo = await db.rawQuery("PRAGMA table_info(team_schedules)");
         final hasStartTime = tableInfo.any((column) => column['name'] == 'start_time');
+        final hasMataKuliah = tableInfo.any((column) => column['name'] == 'mata_kuliah');
         
         if (!hasStartTime) {
-          // Add the new columns to team_schedules
+          // Add time columns to team_schedules
           await db.execute('ALTER TABLE team_schedules ADD COLUMN start_time TEXT');
           await db.execute('ALTER TABLE team_schedules ADD COLUMN end_time TEXT');
           print('Added start_time and end_time columns to team_schedules');
+        }
+        
+        if (!hasMataKuliah) {
+          // Add schedule data columns to team_schedules
+          await db.execute('ALTER TABLE team_schedules ADD COLUMN mata_kuliah TEXT');
+          await db.execute('ALTER TABLE team_schedules ADD COLUMN waktu TEXT');
+          await db.execute('ALTER TABLE team_schedules ADD COLUMN ruangan TEXT');
+          await db.execute('ALTER TABLE team_schedules ADD COLUMN dosen TEXT');
+          await db.execute('ALTER TABLE team_schedules ADD COLUMN hari TEXT');
+          print('Added schedule data columns to team_schedules');
+          
+          // Migrate existing data from schedules to team_schedules
+          final teamSchedules = await db.query('team_schedules');
+          for (var teamSchedule in teamSchedules) {
+            final scheduleId = teamSchedule['schedule_id'] as int?;
+            if (scheduleId != null) {
+              final scheduleData = await db.query(
+                'schedules',
+                where: 'id = ?',
+                whereArgs: [scheduleId],
+              );
+              
+              if (scheduleData.isNotEmpty) {
+                await db.update(
+                  'team_schedules',
+                  {
+                    'mata_kuliah': scheduleData.first['mataKuliah'],
+                    'waktu': scheduleData.first['waktu'],
+                    'ruangan': scheduleData.first['ruangan'],
+                    'dosen': scheduleData.first['dosen'],
+                    'hari': scheduleData.first['hari'],
+                  },
+                  where: 'id = ?',
+                  whereArgs: [teamSchedule['id']],
+                );
+              }
+            }
+          }
         }
         
         // Create the new tables for optimal schedules
@@ -108,10 +147,14 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE team_schedules(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        schedule_id INTEGER NOT NULL,
+        schedule_id INTEGER,
         start_time TEXT,
         end_time TEXT,
-        FOREIGN KEY (schedule_id) REFERENCES schedules (id)
+        mata_kuliah TEXT,
+        waktu TEXT,
+        ruangan TEXT,
+        dosen TEXT,
+        hari TEXT
       )
     ''');
 
@@ -208,21 +251,15 @@ class DatabaseHelper {
   // This method is used for inserting team schedules without affecting the regular schedules table
   Future<int> insertTeamScheduleOnly(TeamSchedule teamSchedule) async {
     final db = await instance.database;
-    
-    // First, insert the schedule data directly into the schedules table
-    final scheduleId = await db.insert('schedules', {
-      'mataKuliah': teamSchedule.schedule.mataKuliah,
+  
+    // Create a new entry in team_schedules table with all schedule data
+    // This avoids creating an entry in the regular schedules table
+    final teamScheduleId = await db.insert('team_schedules', {
+      'mata_kuliah': teamSchedule.schedule.mataKuliah,
       'waktu': teamSchedule.schedule.waktu,
-      'startTime': teamSchedule.schedule.startTime,
-      'endTime': teamSchedule.schedule.endTime,
       'ruangan': teamSchedule.schedule.ruangan,
       'dosen': teamSchedule.schedule.dosen,
       'hari': teamSchedule.schedule.hari,
-    });
-    
-    // Then insert the team schedule with reference to the schedule
-    final teamScheduleId = await db.insert('team_schedules', {
-      'schedule_id': scheduleId,
       'start_time': teamSchedule.startTime,
       'end_time': teamSchedule.endTime,
     });
@@ -264,34 +301,21 @@ class DatabaseHelper {
   // This method updates team schedules without affecting the regular schedules table
   Future<int> updateTeamScheduleOnly(TeamSchedule teamSchedule) async {
     final db = await instance.database;
-    
-    // Update the team schedule with start and end times
+  
+    // Update the team schedule with all schedule data directly in team_schedules table
     await db.update(
       'team_schedules',
       {
         'start_time': teamSchedule.startTime,
         'end_time': teamSchedule.endTime,
-      },
-      where: 'id = ?',
-      whereArgs: [teamSchedule.id],
-    );
-    
-    // Update the schedule in the schedules table but only for this team schedule
-    // This won't affect jadwal_perkuliahan.dart because we're only updating the schedule
-    // that's linked to this specific team schedule
-    await db.update(
-      'schedules',
-      {
-        'mataKuliah': teamSchedule.schedule.mataKuliah,
+        'mata_kuliah': teamSchedule.schedule.mataKuliah,
         'waktu': teamSchedule.schedule.waktu,
-        'startTime': teamSchedule.schedule.startTime,
-        'endTime': teamSchedule.schedule.endTime,
         'ruangan': teamSchedule.schedule.ruangan,
         'dosen': teamSchedule.schedule.dosen,
         'hari': teamSchedule.schedule.hari,
       },
       where: 'id = ?',
-      whereArgs: [teamSchedule.schedule.id],
+      whereArgs: [teamSchedule.id],
     );
 
     // Delete existing team members
@@ -405,48 +429,41 @@ class DatabaseHelper {
     List<TeamSchedule> result = [];
 
     for (var teamSchedule in teamSchedules) {
-      final scheduleId = teamSchedule['schedule_id'] as int;
       final teamScheduleId = teamSchedule['id'] as int;
       final startTime = teamSchedule['start_time'] as String?;
       final endTime = teamSchedule['end_time'] as String?;
-
-      final scheduleData = await db.query(
-        'schedules',
-        where: 'id = ?',
-        whereArgs: [scheduleId],
-      );
-
+      
+      // Get team members
       final memberData = await db.query(
         'team_members',
         where: 'team_schedule_id = ?',
         whereArgs: [teamScheduleId],
       );
+      
+      // Create a Schedule object from the team_schedules data
+      final schedule = Schedule(
+        id: teamScheduleId, // Use the team schedule ID as the schedule ID
+        mataKuliah: teamSchedule['mata_kuliah'] as String? ?? '',
+        waktu: teamSchedule['waktu'] as String? ?? '',
+        startTime: startTime ?? '',
+        endTime: endTime ?? '',
+        ruangan: teamSchedule['ruangan'] as String? ?? '',
+        dosen: teamSchedule['dosen'] as String? ?? '',
+        hari: teamSchedule['hari'] as String? ?? '',
+      );
 
-      if (scheduleData.isNotEmpty) {
-        final schedule = Schedule(
-          id: scheduleData.first['id'] as int,
-          mataKuliah: scheduleData.first['mataKuliah'] as String,
-          waktu: scheduleData.first['waktu'] as String,
-          startTime: scheduleData.first['startTime'] as String? ?? '',
-          endTime: scheduleData.first['endTime'] as String? ?? '',
-          ruangan: scheduleData.first['ruangan'] as String,
-          dosen: scheduleData.first['dosen'] as String,
-          hari: scheduleData.first['hari'] as String,
-        );
+      final members = memberData.map((member) => TeamMember(
+        name: member['name'] as String,
+        role: member['role'] as String,
+      )).toList();
 
-        final members = memberData.map((member) => TeamMember(
-          name: member['name'] as String,
-          role: member['role'] as String,
-        )).toList();
-
-        result.add(TeamSchedule(
-          id: teamScheduleId,
-          schedule: schedule,
-          members: members,
-          startTime: startTime,
-          endTime: endTime
-        ));
-      }
+      result.add(TeamSchedule(
+        id: teamScheduleId,
+        schedule: schedule,
+        members: members,
+        startTime: startTime,
+        endTime: endTime
+      ));
     }
 
     return result;
