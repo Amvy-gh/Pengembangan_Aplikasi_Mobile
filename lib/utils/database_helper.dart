@@ -550,12 +550,13 @@ class DatabaseHelper {
     return result;
   }
   
+  // Get the currently selected optimal schedule (if any)
   Future<OptimalSchedule?> getSelectedOptimalSchedule() async {
     final db = await instance.database;
     final schedules = await db.query(
       'selected_optimal_schedules',
       where: 'is_selected = 1',
-      limit: 1,
+      limit: 1
     );
     
     if (schedules.isEmpty) {

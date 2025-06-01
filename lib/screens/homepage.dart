@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../widgets/main_scaffold.dart';
 import '../utils/database_helper.dart';
 import 'jadwal_perkuliahan.dart';
+import 'jadwal_kerja_kelompok.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class Homepage extends StatefulWidget {
@@ -18,6 +19,7 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
   List<Map<String, dynamic>> todaySchedule = [];
   List<Map<String, dynamic>> todayTeamSchedule = [];
+  List<Map<String, dynamic>> todayOptimalSchedule = [];
   // Use Firebase Auth to get the current user's display name or email
   String get currentUser {
     final user = FirebaseAuth.instance.currentUser;
@@ -80,11 +82,11 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
       final db = DatabaseHelper.instance;
       final schedules = await db.getAllSchedules();
       final teamSchedules = await db.getAllTeamSchedules();
+      final optimalSchedules = await db.getAllOptimalSchedules();
       final today = DateTime.now();
       final dayName = _getDayName(today.weekday);
       
-      print('Loaded ${schedules.length} regular schedules and ${teamSchedules.length} team schedules');
-      print('Team schedules: ${teamSchedules.map((ts) => ts.schedule.mataKuliah).join(', ')}');
+      print('Loaded ${schedules.length} regular schedules, ${teamSchedules.length} team schedules, and ${optimalSchedules.length} optimal schedules');
       
       setState(() {
         // Filter jadwal kuliah untuk user saat ini
@@ -99,7 +101,7 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
           })
           .toList();
 
-        // Filter jadwal kelompok yang optimal untuk hari ini
+        // Filter jadwal kelompok biasa untuk hari ini
         todayTeamSchedule = teamSchedules
           .where((teamSchedule) => 
             teamSchedule.schedule.hari == dayName && 
@@ -115,6 +117,22 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
             'members': teamSchedule.members.map((m) => m.name).toList(),
           })
           .toList();
+          
+        // Add optimal schedules for today
+        final selectedOptimalSchedules = optimalSchedules
+          .where((schedule) => schedule.isSelected && schedule.day == dayName)
+          .map((schedule) => {
+            'title': "Jadwal Optimal (CSP)",
+            'time': schedule.time,
+            'location': schedule.location,
+            'icon': Icons.group_work,
+            'color': Colors.indigo,
+            'members': schedule.members,
+          })
+          .toList();
+          
+        // Combine regular team schedules with optimal schedules
+        todayTeamSchedule = [...todayTeamSchedule, ...selectedOptimalSchedules];
       });
     } catch (e) {
       print('Error loading schedules: $e');
@@ -513,60 +531,60 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
                 SizedBox(height: 12),
                 
                 // Team schedule content or empty state
-                if (todayTeamSchedule.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Belum Ada Jadwal Kerja Kelompok!',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade900,
-                          ),
-                        ),
-                        SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () => context.go('/jadwal-kerja-kelompok'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF4A7AB9),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                          ),
-                          child: Text(
-                            'TAMBAHKAN JADWAL KELOMPOK',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Column(
-                    children: [
-                      ...todayTeamSchedule.map((schedule) =>
-                        _buildTeamScheduleCard(
-                          context,
-                          schedule['title'],
-                          schedule['time'],
-                          schedule['location'],
-                          schedule['members'],
-                        ),
-                      ),
-                    ],
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  child: todayTeamSchedule.isEmpty
+                    ? Column(
+                        children: [
+                          Text(
+                            'Belum Ada Jadwal Kerja Kelompok!',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade900,
+                            ),
+                          ),
+                          SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: () => context.go('/jadwal-kerja-kelompok'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF4A7AB9),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            ),
+                            child: Text(
+                              'TAMBAHKAN JADWAL KELOMPOK',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...todayTeamSchedule.map((schedule) =>
+                            _buildTeamScheduleCard(
+                              context,
+                              schedule['title'],
+                              schedule['time'],
+                              schedule['location'],
+                              schedule['members'],
+                            ),
+                          ),
+                        ],
+                      ),
+                ),
               ],
             ),
           ),
@@ -576,7 +594,10 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
   }
 
   Widget _buildTeamScheduleCard(BuildContext context, String title, String time,
-      String location, List<String> members) {
+      String location, List<dynamic> members) {
+    // Determine if this is an optimal schedule by checking the title
+    bool isOptimalSchedule = title.contains('Optimal') || title.contains('CSP');
+    
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -599,10 +620,14 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.purple.withOpacity(0.2),
+              color: isOptimalSchedule ? Colors.indigo.withOpacity(0.2) : Colors.purple.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.group, color: Colors.purple, size: 20),
+            child: Icon(
+              isOptimalSchedule ? Icons.group_work : Icons.group, 
+              color: isOptimalSchedule ? Colors.indigo : Colors.purple, 
+              size: 20
+            ),
           ),
           SizedBox(width: 16),
           Expanded(
@@ -645,24 +670,35 @@ class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
+                SizedBox(height: 8),
+                Text(
+                  'Anggota:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade900,
+                  ),
+                ),
                 SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.people, size: 14, color: Colors.grey.shade600),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        'Anggota: ${members.join(', ')}',
+                Wrap(
+                  spacing: 6,
+                  children: members.map((member) {
+                    // Handle both String members (from optimal schedules) and TeamMember objects
+                    String memberName = member is String ? member : (member is TeamMember ? member.name : 'Unknown');
+                    
+                    return Chip(
+                      label: Text(
+                        memberName,
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                          fontSize: 10,
+                          color: Colors.grey.shade700,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
                       ),
-                    ),
-                  ],
+                      backgroundColor: isOptimalSchedule ? Colors.indigo.shade50 : Colors.grey.shade100,
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    );
+                  }).toList(),
                 ),
               ],
             ),
