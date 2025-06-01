@@ -129,12 +129,6 @@ git push origin fitur-baru
 
 ---
 
-## 📝 Lisensi
-
-Lisensi: **[Tentukan lisensi Anda, misal MIT, Apache 2.0]**
-
----
-
 ## 📬 Kontak
 
 Bisa menghubungi antara anggota kelompok diatas.
