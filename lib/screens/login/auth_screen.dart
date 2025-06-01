@@ -282,6 +282,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     style: GoogleFonts.poppins(),
                     validator: (value) => _validateNotEmpty(value, 'Program Studi'),
                   ),
+                  SizedBox(height: 16),
                 ],
                 TextFormField(
                   controller: _emailController,

@@ -355,9 +355,11 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
   Widget build(BuildContext context) {
     return MainScaffold(
       currentIndex: 1,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
+      body: SafeArea(
+        bottom: false, // Don't add safe area at bottom since MainScaffold handles that
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // User greeting section
@@ -690,6 +692,7 @@ class _JadwalPerkuliahanState extends State<JadwalPerkuliahan> {
           ],
         ),
       ),
+    ),
     );
   }
 
