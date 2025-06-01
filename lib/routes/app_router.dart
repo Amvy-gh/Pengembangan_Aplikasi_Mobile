@@ -13,6 +13,7 @@ import '../screens/change_password_screen.dart';
 import '../screens/notification_settings_screen.dart';
 import '../screens/help_center_screen.dart';
 import '../screens/about_screen.dart';
+import '../screens/faq_screen.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -45,6 +46,10 @@ class AppRouter {
       GoRoute(
         path: '/settings/help',
         builder: (context, state) => HelpCenterScreen(),
+      ),
+      GoRoute(
+        path: '/faq',
+        builder: (context, state) => FAQScreen(),
       ),
       GoRoute(
         path: '/settings/about',

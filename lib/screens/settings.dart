@@ -12,38 +12,35 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  String _selectedLanguage = 'Indonesia';
-  String _selectedTheme = 'Terang';
-  
   // Data pengguna
   String _userName = '';
   String _userEmail = '';
   String _userNim = '';
   String _userProdi = '';
   bool _isLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
   }
-  
+
   // Fungsi untuk memuat data profil pengguna dari database
   Future<void> _loadUserProfile() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
-      
+
       if (currentUser != null) {
         // Set email dari Firebase Auth
         _userEmail = currentUser.email ?? '';
-        
+
         // Load data dari SQLite
         final userProfile = await DatabaseHelper.instance.getUserProfile(currentUser.uid);
-        
+
         setState(() {
           if (userProfile != null) {
             _userName = userProfile.name;
@@ -73,139 +70,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  void _showLanguageBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Text(
-              'Pilih Bahasa',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            ListTile(
-              leading: Icon(
-                _selectedLanguage == 'Indonesia' 
-                    ? Icons.radio_button_checked 
-                    : Icons.radio_button_unchecked,
-                color: Theme.of(context).primaryColor,
-              ),
-              title: Text('Indonesia'),
-              onTap: () {
-                setState(() => _selectedLanguage = 'Indonesia');
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                _selectedLanguage == 'English' 
-                    ? Icons.radio_button_checked 
-                    : Icons.radio_button_unchecked,
-                color: Theme.of(context).primaryColor,
-              ),
-              title: Text('English'),
-              onTap: () {
-                setState(() => _selectedLanguage = 'English');
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showThemeBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Text(
-              'Pilih Tema',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            ListTile(
-              leading: Icon(
-                _selectedTheme == 'Terang' 
-                    ? Icons.radio_button_checked 
-                    : Icons.radio_button_unchecked,
-                color: Theme.of(context).primaryColor,
-              ),
-              title: Text('Terang'),
-              onTap: () {
-                setState(() => _selectedTheme = 'Terang');
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                _selectedTheme == 'Gelap' 
-                    ? Icons.radio_button_checked 
-                    : Icons.radio_button_unchecked,
-                color: Theme.of(context).primaryColor,
-              ),
-              title: Text('Gelap'),
-              onTap: () {
-                setState(() => _selectedTheme = 'Gelap');
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                _selectedTheme == 'Sistem' 
-                    ? Icons.radio_button_checked 
-                    : Icons.radio_button_unchecked,
-                color: Theme.of(context).primaryColor,
-              ),
-              title: Text('Sistem'),
-              onTap: () {
-                setState(() => _selectedTheme = 'Sistem');
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return MainScaffold(
@@ -230,45 +94,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     _buildSettingTile(
                       context,
-                      icon: Icons.email_outlined,
-                      title: 'Ganti Email',
-                      subtitle: 'Ubah alamat email yang terdaftar',
-                      onTap: () => context.push('/settings/email'),
-                    ),
-                    _buildSettingTile(
-                      context,
                       icon: Icons.lock_outline,
                       title: 'Ganti Password',
                       subtitle: 'Ubah password akun anda',
                       onTap: () => context.push('/settings/password'),
-                    ),
-                  ],
-                ),
-                _buildSection(
-                  'Aplikasi',
-                  [
-                    _buildSettingTile(
-                      context,
-                      icon: Icons.notifications_outlined,
-                      title: 'Notifikasi',
-                      subtitle: 'Atur pengingat jadwal',
-                      onTap: () => context.push('/settings/notifications'),
-                    ),
-                    _buildSettingTile(
-                      context,
-                      icon: Icons.language_outlined,
-                      title: 'Bahasa',
-                      subtitle: 'Pilih bahasa aplikasi',
-                      trailing: Text(_selectedLanguage),
-                      onTap: _showLanguageBottomSheet,
-                    ),
-                    _buildSettingTile(
-                      context,
-                      icon: Icons.palette_outlined,
-                      title: 'Tema',
-                      subtitle: 'Ubah tampilan aplikasi',
-                      trailing: Text(_selectedTheme),
-                      onTap: _showThemeBottomSheet,
                     ),
                   ],
                 ),
@@ -278,9 +107,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     _buildSettingTile(
                       context,
                       icon: Icons.help_outline,
-                      title: 'Bantuan',
-                      subtitle: 'Pusat bantuan dan FAQ',
-                      onTap: () => context.push('/settings/help'),
+                      title: 'FAQ',
+                      subtitle: 'Pertanyaan yang sering ditanyakan',
+                      onTap: () => context.push('/faq'),
                     ),
                     _buildSettingTile(
                       context,
@@ -316,7 +145,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 context.go('/auth');
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                                backgroundColor: Color(0xFF4A7AB9),
                                 foregroundColor: Colors.white,
                               ),
                               child: Text('Keluar'),
@@ -326,7 +155,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: Color(0xFF4A7AB9),
                       foregroundColor: Colors.white,
                       minimumSize: Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(
@@ -359,7 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
+              color: Color(0xFF4A7AB9),
             ),
           ),
         ),
@@ -367,7 +196,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     );
   }
-  
+
   Widget _buildSettingTile(
     BuildContext context, {
     required IconData icon,
@@ -402,12 +231,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   Container(
                     padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      color: Color(0xFF4A7AB9).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       icon,
-                      color: Theme.of(context).primaryColor,
+                      color: Color(0xFF4A7AB9),
                       size: 24,
                     ),
                   ),
@@ -461,14 +290,14 @@ class _SettingsPageState extends State<SettingsPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
+            Color(0xFF4A7AB9),
+            Color(0xFF4A7AB9).withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color: Color(0xFF4A7AB9).withOpacity(0.3),
             blurRadius: 15,
             offset: Offset(0, 5),
           ),

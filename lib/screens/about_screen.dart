@@ -13,6 +13,9 @@ class AboutScreen extends StatelessWidget {
           icon: Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF4A7AB9),
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(24),
@@ -22,7 +25,7 @@ class AboutScreen extends StatelessWidget {
             Icon(
               Icons.schedule,
               size: 72,
-              color: Theme.of(context).primaryColor,
+              color: Color(0xFF4A7AB9),
             ),
             SizedBox(height: 16),
             Text(
