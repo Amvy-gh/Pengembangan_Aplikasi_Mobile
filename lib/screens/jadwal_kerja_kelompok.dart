@@ -776,7 +776,27 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                           fontSize: 16,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      SizedBox(height: 8),
+                      // Tampilan hari yang lebih jelas dengan background kuning
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFFD95A),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_today, size: 16, color: Colors.black87),
+                            SizedBox(width: 4),
+                            Text(
+                              teamSchedule.schedule.hari,
+                              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           Icon(Icons.access_time, size: 16, color: Colors.grey),
@@ -1285,14 +1305,7 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                   onPressed: selectedSchedule == null
                     ? null  // Disable if nothing selected
                     : () {
-                        // First, update the UI immediately to provide feedback
-                        setState(() {
-                          selectedOptimalSchedule = selectedSchedule;
-                          showSelectedSchedule = true;
-                          showOptimalSchedules = false; // Hide the other section
-                        });
-                        
-                        // Close the dialog
+                        // Close the dialog first
                         Navigator.pop(context);
                         
                         try {
@@ -1300,12 +1313,45 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                           final user = FirebaseAuth.instance.currentUser;
                           final userId = user?.uid;
                           
+                          // Tampilkan loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                content: Row(
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(width: 20),
+                                    Text('Menyimpan jadwal...')
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                          
                           // Save the selected schedule to the database with user_id
                           DatabaseHelper.instance.saveOptimalSchedule(
                             selectedSchedule!,
                             userId: userId
                           ).then((id) {
+                            // Tutup dialog loading
+                            Navigator.pop(context);
+                            
+                            // Update state langsung
                             setState(() {
+                              selectedOptimalSchedule = OptimalSchedule(
+                                id: id,
+                                day: selectedSchedule!.day,
+                                time: selectedSchedule!.time,
+                                location: selectedSchedule!.location,
+                                members: selectedSchedule!.members,
+                                isSelected: true
+                              );
+                            });
+                            
+                            // Update state di parent widget
+                            this.setState(() {
                               showOptimalSchedules = false;
                               showSelectedSchedule = true;
                               selectedOptimalSchedule = OptimalSchedule(
@@ -1319,15 +1365,40 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                             });
                             
                             print('Successfully saved optimal schedule with ID: $id for user: $userId');
+                            
+                            // Tampilkan snackbar konfirmasi
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Jadwal optimal berhasil disimpan'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
+                              )
+                            );
+                            
                           }).catchError((error) {
+                            // Tutup dialog loading
+                            Navigator.pop(context);
+                            
                             print('Error saving optimal schedule: $error');
-                            // Don't show error to user as the UI is already updated
-                            // Just log it for debugging
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal menyimpan jadwal: $error'),
+                                backgroundColor: Colors.red,
+                              )
+                            );
                           });
                         } catch (e) {
+                          // Tutup dialog loading jika masih terbuka
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          }
+                          
                           print('Error in schedule selection: $e');
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('An error occurred. Please try again.'))
+                            SnackBar(
+                              content: Text('Terjadi kesalahan. Silakan coba lagi.'),
+                              backgroundColor: Colors.red,
+                            )
                           );
                         }
                       },

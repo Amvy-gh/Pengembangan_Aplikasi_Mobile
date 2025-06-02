@@ -72,13 +72,35 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         await user.updatePassword(_newPasswordController.text.trim());
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Password berhasil diperbarui'),
-              backgroundColor: Colors.green,
-            ),
+          // Tampilkan dialog konfirmasi keberhasilan
+          await showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Berhasil')
+                  ],
+                ),
+                content: Text('Password anda berhasil diperbarui.'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      // Kembali ke halaman sebelumnya dengan status true
+                      context.pop(true);
+                    },
+                    child: Text('OK'),
+                  ),
+                ],
+              );
+            },
           );
-          context.pop();
         }
       } on FirebaseAuthException catch (e) {
         setState(() {

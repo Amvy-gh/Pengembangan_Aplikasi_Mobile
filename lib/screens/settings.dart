@@ -91,14 +91,38 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: Icons.person_outline,
                       title: 'Edit Profil',
                       subtitle: 'Ubah nama, foto, dan informasi lainnya',
-                      onTap: () => context.push('/settings/profile'),
+                      onTap: () async {
+                        // Navigasi ke halaman edit profil dan tunggu hasil
+                        final result = await context.push('/settings/profile');
+                        
+                        // Jika kembali dengan hasil true (data diperbarui), refresh data profil
+                        if (result == true) {
+                          await _loadUserProfile();
+                        }
+                      },
                     ),
                     _buildSettingTile(
                       context,
                       icon: Icons.lock_outline,
                       title: 'Ganti Password',
                       subtitle: 'Ubah password akun anda',
-                      onTap: () => context.push('/settings/password'),
+                      onTap: () async {
+                        // Navigasi ke halaman ganti password dan tunggu hasil
+                        final result = await context.push('/settings/password');
+                        
+                        // Jika kembali dengan hasil true (password diperbarui), tampilkan konfirmasi
+                        if (result == true) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Password berhasil diperbarui'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      },
                     ),
                   ],
                 ),

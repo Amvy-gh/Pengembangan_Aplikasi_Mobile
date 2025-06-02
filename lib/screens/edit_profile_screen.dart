@@ -95,13 +95,49 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           await DatabaseHelper.instance.saveUserProfile(updatedProfile);
           
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Profil berhasil diperbarui'),
-                backgroundColor: Colors.green,
-              ),
+            // Tampilkan dialog konfirmasi dengan data yang diperbarui
+            await showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: Text('Profil Berhasil Diperbarui'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.person, color: Color(0xFF4A7AB9)),
+                        title: Text('Nama'),
+                        subtitle: Text(_nameController.text.trim()),
+                        dense: true,
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.badge, color: Color(0xFF4A7AB9)),
+                        title: Text('NIM'),
+                        subtitle: Text(_nimController.text.trim()),
+                        dense: true,
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.school, color: Color(0xFF4A7AB9)),
+                        title: Text('Program Studi'),
+                        subtitle: Text(_prodiController.text.trim()),
+                        dense: true,
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        // Kembali ke halaman sebelumnya setelah melihat konfirmasi
+                        context.pop(true); // Passing true untuk menandakan data diperbarui
+                      },
+                      child: Text('OK'),
+                    ),
+                  ],
+                );
+              },
             );
-            context.pop();
           }
         } else {
           throw Exception('User tidak ditemukan');
@@ -111,6 +147,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         setState(() {
           errorMessage = 'Terjadi kesalahan saat menyimpan profil';
         });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Terjadi kesalahan: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } finally {
         if (mounted) {
           setState(() {
