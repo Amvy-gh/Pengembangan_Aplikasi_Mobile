@@ -9,8 +9,6 @@ import '../screens/settings.dart';
 import '../screens/edit_profile_screen.dart';
 import '../screens/change_email_screen.dart';
 import '../screens/change_password_screen.dart';
-import '../screens/notification_settings_screen.dart';
-import '../screens/help_center_screen.dart';
 import '../screens/about_screen.dart';
 import '../screens/faq_screen.dart';
 
@@ -36,14 +34,6 @@ class AppRouter {
       GoRoute(
         path: '/settings/password',
         builder: (context, state) => ChangePasswordScreen(),
-      ),
-      GoRoute(
-        path: '/settings/notifications',
-        builder: (context, state) => NotificationSettingsScreen(),
-      ),
-      GoRoute(
-        path: '/settings/help',
-        builder: (context, state) => HelpCenterScreen(),
       ),
       GoRoute(
         path: '/faq',

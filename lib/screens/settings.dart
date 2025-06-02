@@ -306,10 +306,19 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: Colors.white,
-            backgroundImage: NetworkImage('https://via.placeholder.com/80'),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
           SizedBox(height: 16),
           Text(

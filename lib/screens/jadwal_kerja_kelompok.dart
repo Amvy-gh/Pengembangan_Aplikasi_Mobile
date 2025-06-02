@@ -692,10 +692,14 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
                   schedule.startTime = _startTimeController.text;
                   schedule.endTime = _endTimeController.text;
                   
-                  // Update in database using the new method that doesn't affect jadwal_perkuliahan
-                  DatabaseHelper.instance.updateTeamScheduleOnly(schedule);
+                  // Get current user ID
+                  final user = FirebaseAuth.instance.currentUser;
+                  final userId = user?.uid;
                   
-                  // Update in UI
+                  // Update in database using the proper updateTeamSchedule method
+                  DatabaseHelper.instance.updateTeamSchedule(schedule, userId: userId);
+                  
+                  // Update the UI
                   setState(() {
                     int index = teamSchedules.indexWhere((ts) => ts.id == schedule.id);
                     if (index != -1) {
@@ -751,10 +755,10 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
   Widget _buildTeamScheduleCard(TeamSchedule teamSchedule) {
     return Card(
       elevation: 3,
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -865,7 +869,6 @@ class _JadwalKerjaKelompokState extends State<JadwalKerjaKelompok> {
             ),
             ...teamSchedule.members.map((member) => ListTile(
               dense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 0),
               leading: CircleAvatar(
                 backgroundColor: Color(0xFFFFD95A),
                 child: Text(

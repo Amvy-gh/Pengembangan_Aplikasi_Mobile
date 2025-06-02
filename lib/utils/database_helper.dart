@@ -356,88 +356,70 @@ class DatabaseHelper {
         'name': member.name,
         'role': member.role,
       });
-    }
-
-    return teamScheduleId;
   }
 
-  // This method updates team schedules without affecting the regular schedules table
-  Future<int> updateTeamScheduleOnly(TeamSchedule teamSchedule, {String? userId}) async {
-    final db = await instance.database;
+  return teamSchedule.id ?? 0; // Provide a default value if id is null
+}
   
-    // Update the team schedule with all schedule data directly in team_schedules table
-    await db.update(
-      'team_schedules',
-      {
-        'start_time': teamSchedule.startTime,
-        'end_time': teamSchedule.endTime,
-        'mata_kuliah': teamSchedule.schedule.mataKuliah,
-        'waktu': teamSchedule.schedule.waktu,
-        'ruangan': teamSchedule.schedule.ruangan,
-        'dosen': teamSchedule.schedule.dosen,
-        'hari': teamSchedule.schedule.hari,
-        'user_id': userId,
-      },
-      where: 'id = ?',
-      whereArgs: [teamSchedule.id],
-    );
-
-    // Delete existing team members
-    await db.delete(
-      'team_members',
-      where: 'team_schedule_id = ?',
-      whereArgs: [teamSchedule.id],
-    );
-
-    // Insert updated team members
-    for (var member in teamSchedule.members) {
-      await db.insert('team_members', {
-        'team_schedule_id': teamSchedule.id,
-        'name': member.name,
-        'role': member.role,
-      });
-    }
-
-    return teamSchedule.id ?? 0; // Provide a default value if id is null
+// Method to update team schedules with proper handling of team members and available times
+Future<int> updateTeamSchedule(TeamSchedule teamSchedule, {String? userId}) async {
+  final db = await instance.database;
+  
+  if (teamSchedule.id == null) {
+    throw Exception('Cannot update team schedule without an ID');
   }
   
-  // Original method - kept for compatibility with existing code
-  Future<int> updateTeamSchedule(TeamSchedule teamSchedule, {String? userId}) async {
-    final db = await instance.database;
+  // Update the team_schedules table with all schedule data
+  final rowsAffected = await db.update(
+    'team_schedules',
+    {
+      'start_time': teamSchedule.startTime,
+      'end_time': teamSchedule.endTime,
+      'mata_kuliah': teamSchedule.schedule.mataKuliah,
+      'waktu': teamSchedule.schedule.waktu,
+      'ruangan': teamSchedule.schedule.ruangan,
+      'dosen': teamSchedule.schedule.dosen,
+      'hari': teamSchedule.schedule.hari,
+      'user_id': userId,
+    },
+    where: 'id = ?',
+    whereArgs: [teamSchedule.id],
+  );
+  
+  // Delete existing member available times
+  await db.delete(
+    'member_available_times',
+    where: 'team_member_id = ?',
+    whereArgs: [teamSchedule.id],
+  );
+  
+  // Delete existing team members
+  await db.delete(
+    'team_members',
+    where: 'team_schedule_id = ?',
+    whereArgs: [teamSchedule.id],
+  );
+  
+  // Insert updated team members
+  for (var member in teamSchedule.members) {
+    await db.insert('team_members', {
+      'team_schedule_id': teamSchedule.id,
+      'name': member.name,
+      'role': member.role,
+    });
     
-    // Update the schedule first
-    await db.update(
-      'schedules',
-      {
-        'mataKuliah': teamSchedule.schedule.mataKuliah,
-        'waktu': teamSchedule.schedule.waktu,
-        'ruangan': teamSchedule.schedule.ruangan,
-        'dosen': teamSchedule.schedule.dosen,
-        'hari': teamSchedule.schedule.hari,
-        'user_id': userId,
-      },
-      where: 'id = ?',
-      whereArgs: [teamSchedule.schedule.id],
-    );
-
-    // Delete existing team members
-    await db.delete(
-      'team_members',
-      where: 'team_schedule_id = ?',
-      whereArgs: [teamSchedule.id],
-    );
-
-    // Insert updated team members
-    for (var member in teamSchedule.members) {
-      await db.insert('team_members', {
-        'team_schedule_id': teamSchedule.id,
-        'name': member.name,
-        'role': member.role,
+    // Insert available times for each member
+    for (var time in member.availableTimes) {
+      await db.insert('member_available_times', {
+        'team_member_id': teamSchedule.id,
+        'member_name': member.name,
+        'available_time': time,
       });
     }
-
-    return teamSchedule.id ?? 0; // Provide a default value if id is null
   }
+  
+  return teamSchedule.id ?? 0; // Provide a default value if id is null
+}
 
   // This method deletes team schedules without affecting the schedules table
   Future<void> deleteTeamScheduleOnly(TeamSchedule teamSchedule) async {

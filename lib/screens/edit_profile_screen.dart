@@ -142,9 +142,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     Stack(
                       children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundImage: NetworkImage('https://via.placeholder.com/100'),
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Color(0xFF4A7AB9).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                         ),
                       ],
                     ),
